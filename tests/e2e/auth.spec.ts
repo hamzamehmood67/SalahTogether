@@ -1,0 +1,93 @@
+import { test, expect } from "@playwright/test";
+import { mockSupabase } from "./supabase-fixture";
+
+test("old demo data is discarded and visitors must sign in", async ({
+  page,
+}) => {
+  const state = await mockSupabase(page, { signedIn: false });
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "saff-v1",
+      JSON.stringify({
+        settings: { name: "Yusuf" },
+        records: [{ date: "2026-09-29", prayer: "fajr" }],
+      }),
+    );
+    localStorage.setItem("saff-nudge-member1", "1");
+    localStorage.setItem("unrelated", "keep");
+  });
+  await page.goto("/");
+  await expect(page.locator(".reference-welcome")).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem("saff-v1"))).toBeNull();
+  expect(
+    await page.evaluate(() => localStorage.getItem("saff-nudge-member1")),
+  ).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem("unrelated"))).toBe(
+    "keep",
+  );
+  await page.getByRole("button", { name: "Continue individually" }).click();
+  await page.getByLabel("Email address").fill("amina@example.com");
+  await page.getByRole("button", { name: "Send sign-in link" }).click();
+  await expect(page.getByRole("status")).toContainText("Check your email");
+  expect(state.otpRequests).toBe(1);
+  await expect(page.locator(".reference-today")).toHaveCount(0);
+});
+
+test("new account starts empty, persists its first prayer, and clears on sign-out", async ({
+  page,
+}) => {
+  const state = await mockSupabase(page, { populated: false });
+  await page.clock.setFixedTime(new Date("2026-09-29T11:50:00Z"));
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", {
+      name: "Assalamu alaikum, Friend",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /recorded, tap to undo/ }),
+  ).toHaveCount(0);
+  expect(state.circles).toHaveLength(0);
+  await page
+    .getByRole("button", { name: "Fajr, mark as prayed", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText("recorded");
+  await page.reload();
+  await expect(
+    page.getByRole("button", {
+      name: "Fajr, recorded, tap to undo",
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(state.records).toHaveLength(1);
+  await page.getByRole("button", { name: "Lahore, PK" }).click();
+  await page.getByRole("button", { name: "Calculation settings" }).click();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.locator(".reference-welcome")).toBeVisible();
+  await page.reload();
+  await expect(page.locator(".reference-welcome")).toBeVisible();
+  await expect(page.locator(".reference-today")).toHaveCount(0);
+});
+
+test("database failure cannot open a fabricated dashboard and can be retried", async ({
+  page,
+}) => {
+  const state = await mockSupabase(page, {
+    populated: false,
+    failDashboard: true,
+  });
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Unable to load your account" }),
+  ).toBeVisible();
+  await expect(page.locator(".reference-today")).toHaveCount(0);
+  state.failDashboard = false;
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Assalamu alaikum, Friend",
+      exact: true,
+    }),
+  ).toBeVisible();
+});

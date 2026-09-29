@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="0" height="0" style="position: absolute; width: 0; height: 0; overflow: hidden">
+<defs>
+<radialGradient id="gSun" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#FFF4B8"></stop><stop offset="0.45" stop-color="#FFC93C"></stop><stop offset="0.85" stop-color="#F58F1F"></stop><stop offset="1" stop-color="#DE6516"></stop></radialGradient>
+<radialGradient id="gSunset" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#FFE6A6"></stop><stop offset="0.5" stop-color="#FF9657"></stop><stop offset="1" stop-color="#D9407A"></stop></radialGradient>
+<linearGradient id="gHill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8C92FF"></stop><stop offset="1" stop-color="#3A3E9C"></stop></linearGradient>
+<radialGradient id="gCloud" cx="0.35" cy="0.25" r="0.85"><stop offset="0" stop-color="#FFFFFF"></stop><stop offset="0.6" stop-color="#ECE9FF"></stop><stop offset="1" stop-color="#ADA7E6"></stop></radialGradient>
+<radialGradient id="gMoon" cx="0.3" cy="0.3" r="0.85"><stop offset="0" stop-color="#FFF7CF"></stop><stop offset="0.5" stop-color="#FFD66A"></stop><stop offset="1" stop-color="#E29A2E"></stop></radialGradient>
+<radialGradient id="gStar" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#FFF6C4"></stop><stop offset="1" stop-color="#FFB12E"></stop></radialGradient>
+<linearGradient id="gFlame" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD45C"></stop><stop offset="0.55" stop-color="#FF7A2F"></stop><stop offset="1" stop-color="#E23F3F"></stop></linearGradient>
+<linearGradient id="gFlameIn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF6BF"></stop><stop offset="1" stop-color="#FFBE3A"></stop></linearGradient>
+<radialGradient id="gGold" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#FFEDB0"></stop><stop offset="0.5" stop-color="#F5B942"></stop><stop offset="1" stop-color="#C4841A"></stop></radialGradient>
+<linearGradient id="gArch" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE9AE"></stop><stop offset="1" stop-color="#E49A30"></stop></linearGradient>
+<linearGradient id="gArchC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF4CC"></stop><stop offset="0.5" stop-color="#F5B942"></stop><stop offset="1" stop-color="#C4841A"></stop></linearGradient>
+<radialGradient id="gMedGold" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#FFF0BE"></stop><stop offset="0.5" stop-color="#F5B942"></stop><stop offset="1" stop-color="#B97714"></stop></radialGradient>
+<linearGradient id="gMedGoldIn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D9901F"></stop><stop offset="1" stop-color="#8F5A0C"></stop></linearGradient>
+<radialGradient id="gMedSky" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#DDF1FF"></stop><stop offset="0.5" stop-color="#6DB8FF"></stop><stop offset="1" stop-color="#2A6FC9"></stop></radialGradient>
+<linearGradient id="gMedSkyIn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2F6FC4"></stop><stop offset="1" stop-color="#173F7E"></stop></linearGradient>
+<radialGradient id="gMedViolet" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#E6DCFF"></stop><stop offset="0.5" stop-color="#9C7CFF"></stop><stop offset="1" stop-color="#5337B8"></stop></radialGradient>
+<linearGradient id="gMedVioletIn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5B3FC4"></stop><stop offset="1" stop-color="#2F1F7A"></stop></linearGradient>
+<radialGradient id="gMedTeal" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#C4FFEE"></stop><stop offset="0.5" stop-color="#3FD1A8"></stop><stop offset="1" stop-color="#16806E"></stop></radialGradient>
+<linearGradient id="gMedTealIn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B8A74"></stop><stop offset="1" stop-color="#0B4A3F"></stop></linearGradient>
+<radialGradient id="gShadow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#000000" stop-opacity="0.45"></stop><stop offset="1" stop-color="#000000" stop-opacity="0"></stop></radialGradient>
+<filter id="fSoft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur sc-camel-std-deviation="1.2"></feGaussianBlur></filter>
+<clipPath id="cpTop"><rect x="0" y="0" width="64" height="39"></rect></clipPath>
+<mask id="mMoon"><rect x="0" y="0" width="64" height="64" fill="#ffffff"></rect><circle cx="40" cy="23" r="14" fill="#000000"></circle></mask>
+</defs>
+<symbol id="icoFajr" viewBox="0 0 64 64">
+<g class="glow">
+<rect x="30.5" y="7" width="3" height="8" rx="1.5" fill="#FFD36B"></rect>
+<rect x="30.5" y="7" width="3" height="8" rx="1.5" fill="#FFD36B" transform="rotate(-42 32 38)"></rect>
+<rect x="30.5" y="7" width="3" height="8" rx="1.5" fill="#FFD36B" transform="rotate(42 32 38)"></rect>
+</g>
+<circle cx="32" cy="38" r="15" fill="url(#gSun)" clip-path="url(#cpTop)"></circle>
+<ellipse cx="26" cy="30" rx="5" ry="3" fill="#ffffff" opacity="0.65" filter="url(#fSoft)"></ellipse>
+<rect x="6" y="37" width="52" height="17" rx="8.5" fill="url(#gHill)"></rect>
+<rect x="13" y="40" width="20" height="3" rx="1.5" fill="#ffffff" opacity="0.4"></rect>
+</symbol>
+<symbol id="icoDhuhr" viewBox="0 0 64 64">
+<g class="spin">
+<rect x="30.5" y="1" width="3" height="8" rx="1.5" fill="#FFC23A"></rect>
+<rect x="30.5" y="1" width="3" height="8" rx="1.5" fill="#FFC23A" transform="rotate(45 32 29)"></rect>
+<rect x="30.5" y="1" width="3" height="8" rx="1.5" fill="#FFC23A" transform="rotate(90 32 29)"></rect>
+<rect x="30.5" y="1" width="3" height="8" rx="1.5" fill="#FFC23A" transform="rotate(135 32 29)"></rect>
+<rect x="30.5" y="1" width="3" height="8" rx="1.5" fill="#FFC23A" transform="rotate(180 32 29)"></rect>
+<rect x="30.5" y="1" width="3" height="8" rx="1.5" fill="#FFC23A" transform="rotate(225 32 29)"></rect>
+<rect x="30.5" y="1" width="3" height="8" rx="1.5" fill="#FFC23A" transform="rotate(270 32 29)"></rect>
+<rect x="30.5" y="1" width="3" height="8" rx="1.5" fill="#FFC23A" transform="rotate(315 32 29)"></rect>
+</g>
+<circle cx="32" cy="29" r="16" fill="url(#gSun)"></circle>
+<ellipse cx="26" cy="22" rx="6" ry="3.5" fill="#ffffff" opacity="0.7" filter="url(#fSoft)"></ellipse>
+</symbol>
+<symbol id="icoAsr" viewBox="0 0 64 64">
+<circle cx="40" cy="23" r="14" fill="url(#gSun)"></circle>
+<ellipse cx="35" cy="17" rx="5" ry="3" fill="#ffffff" opacity="0.7" filter="url(#fSoft)"></ellipse>
+<g class="drift">
+<path d="M16 53 H48 A8 8 0 0 0 49.5 37.2 A13 13 0 0 0 24.5 33 A10 10 0 0 0 16 53 Z" fill="url(#gCloud)"></path>
+<ellipse cx="30" cy="36" rx="6" ry="2.6" fill="#ffffff" opacity="0.95" filter="url(#fSoft)"></ellipse>
+</g>
+</symbol>
+<symbol id="icoMaghrib" viewBox="0 0 64 64">
+<circle cx="32" cy="38" r="16" fill="url(#gSunset)" clip-path="url(#cpTop)"></circle>
+<ellipse cx="26" cy="29" rx="5" ry="3" fill="#ffffff" opacity="0.6" filter="url(#fSoft)"></ellipse>
+<rect x="7" y="41" width="50" height="4.5" rx="2.25" fill="#9A6BE0"></rect>
+<rect x="14" y="48.5" width="36" height="4" rx="2" fill="#7652C9"></rect>
+<rect x="22" y="55.5" width="20" height="3.5" rx="1.75" fill="#5A3DA8"></rect>
+<rect x="24" y="41" width="16" height="4.5" rx="2.25" fill="#FFB36B" opacity="0.85"></rect>
+</symbol>
+<symbol id="icoIsha" viewBox="0 0 64 64">
+<circle cx="28" cy="33" r="19" fill="url(#gMoon)" mask="url(#mMoon)"></circle>
+<ellipse cx="16" cy="33" rx="2.5" ry="7" fill="#ffffff" opacity="0.55" filter="url(#fSoft)"></ellipse>
+<path class="tw" d="M50 8 C51 13 51 13 56 14 C51 15 51 15 50 20 C49 15 49 15 44 14 C49 13 49 13 50 8 Z" fill="url(#gStar)"></path>
+<path class="tw tw2" d="M52 33 C52.7 36.3 52.7 36.3 56 37 C52.7 37.7 52.7 37.7 52 41 C51.3 37.7 51.3 37.7 48 37 C51.3 36.3 51.3 36.3 52 33 Z" fill="url(#gStar)"></path>
+</symbol>
+<symbol id="icoFlame" viewBox="0 0 64 64">
+<path d="M32 5 C40 17 50 23 50 38 C50 50 42 57 32 57 C22 57 14 50 14 38 C14 30 19 24 24 18 C25 25 28 28 30 28 C30 20 29 12 32 5 Z" fill="url(#gFlame)"></path>
+<path d="M32 29 C37 35 42 39 42 45.5 C42 51.5 37.5 55.5 32 55.5 C26.5 55.5 22 51.5 22 45.5 C22 39 27 35 32 29 Z" fill="url(#gFlameIn)"></path>
+<ellipse cx="22" cy="38" rx="3" ry="7" fill="#ffffff" opacity="0.35" filter="url(#fSoft)"></ellipse>
+</symbol>
+<symbol id="icoCoin" viewBox="0 0 64 64">
+<circle cx="32" cy="34" r="26" fill="#B7780F"></circle>
+<circle cx="32" cy="31" r="26" fill="url(#gGold)"></circle>
+<circle cx="32" cy="31" r="20" fill="none" stroke="#FFF1C4" stroke-opacity="0.55" stroke-width="1.5"></circle>
+<path d="M21 32 L29 40 L44 23" fill="none" stroke="#6E4205" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"></path>
+<ellipse cx="23" cy="18" rx="7" ry="4" fill="#ffffff" opacity="0.6" filter="url(#fSoft)"></ellipse>
+</symbol>
+<symbol id="icoMark" viewBox="0 0 64 64">
+<path d="M4 54 V34.5 A4.5 4.5 0 0 1 13 34.5 V54 Z" fill="url(#gArch)"></path>
+<path d="M15.75 54 V28.5 A4.5 4.5 0 0 1 24.75 28.5 V54 Z" fill="url(#gArch)"></path>
+<path d="M27.5 54 V18.5 A4.5 4.5 0 0 1 36.5 18.5 V54 Z" fill="url(#gArchC)"></path>
+<path d="M39.25 54 V28.5 A4.5 4.5 0 0 1 48.25 28.5 V54 Z" fill="url(#gArch)"></path>
+<path d="M51 54 V34.5 A4.5 4.5 0 0 1 60 34.5 V54 Z" fill="url(#gArch)"></path>
+<rect x="6" y="34" width="2" height="14" rx="1" fill="#ffffff" opacity="0.55"></rect>
+<rect x="17.75" y="28" width="2" height="20" rx="1" fill="#ffffff" opacity="0.55"></rect>
+<rect x="29.5" y="18" width="2" height="30" rx="1" fill="#ffffff" opacity="0.6"></rect>
+<rect x="41.25" y="28" width="2" height="20" rx="1" fill="#ffffff" opacity="0.55"></rect>
+<rect x="53" y="34" width="2" height="14" rx="1" fill="#ffffff" opacity="0.55"></rect>
+<path class="tw" d="M32 2 C32.6 5.4 32.6 5.4 36 6 C32.6 6.6 32.6 6.6 32 10 C31.4 6.6 31.4 6.6 28 6 C31.4 5.4 31.4 5.4 32 2 Z" fill="url(#gStar)"></path>
+</symbol>
+<symbol id="medGold" viewBox="0 0 64 64">
+<ellipse cx="32" cy="61" rx="18" ry="2.5" fill="url(#gShadow)"></ellipse>
+<path d="M21 38 L15 58 L22 55 L26 61 L31 42 Z" fill="#E0487A"></path>
+<path d="M43 38 L49 58 L42 55 L38 61 L33 42 Z" fill="#B8336A"></path>
+<circle cx="32" cy="29" r="23" fill="#9C6210"></circle>
+<circle cx="32" cy="27" r="23" fill="url(#gMedGold)"></circle>
+<circle cx="32" cy="27" r="17" fill="url(#gMedGoldIn)"></circle>
+<circle cx="32" cy="27" r="17" fill="none" stroke="#FFF1C4" stroke-opacity="0.55" stroke-width="1.2"></circle>
+<ellipse cx="23" cy="13" rx="7" ry="3.5" fill="#ffffff" opacity="0.6" filter="url(#fSoft)"></ellipse>
+</symbol>
+<symbol id="medSky" viewBox="0 0 64 64">
+<ellipse cx="32" cy="61" rx="18" ry="2.5" fill="url(#gShadow)"></ellipse>
+<path d="M21 38 L15 58 L22 55 L26 61 L31 42 Z" fill="#7652C9"></path>
+<path d="M43 38 L49 58 L42 55 L38 61 L33 42 Z" fill="#553AA6"></path>
+<circle cx="32" cy="29" r="23" fill="#1D4F95"></circle>
+<circle cx="32" cy="27" r="23" fill="url(#gMedSky)"></circle>
+<circle cx="32" cy="27" r="17" fill="url(#gMedSkyIn)"></circle>
+<circle cx="32" cy="27" r="17" fill="none" stroke="#DDF1FF" stroke-opacity="0.5" stroke-width="1.2"></circle>
+<ellipse cx="23" cy="13" rx="7" ry="3.5" fill="#ffffff" opacity="0.6" filter="url(#fSoft)"></ellipse>
+</symbol>
+<symbol id="medViolet" viewBox="0 0 64 64">
+<ellipse cx="32" cy="61" rx="18" ry="2.5" fill="url(#gShadow)"></ellipse>
+<path d="M21 38 L15 58 L22 55 L26 61 L31 42 Z" fill="#F5B942"></path>
+<path d="M43 38 L49 58 L42 55 L38 61 L33 42 Z" fill="#C98A1C"></path>
+<circle cx="32" cy="29" r="23" fill="#3B2489"></circle>
+<circle cx="32" cy="27" r="23" fill="url(#gMedViolet)"></circle>
+<circle cx="32" cy="27" r="17" fill="url(#gMedVioletIn)"></circle>
+<circle cx="32" cy="27" r="17" fill="none" stroke="#E6DCFF" stroke-opacity="0.5" stroke-width="1.2"></circle>
+<ellipse cx="23" cy="13" rx="7" ry="3.5" fill="#ffffff" opacity="0.6" filter="url(#fSoft)"></ellipse>
+</symbol>
+<symbol id="medTeal" viewBox="0 0 64 64">
+<ellipse cx="32" cy="61" rx="18" ry="2.5" fill="url(#gShadow)"></ellipse>
+<path d="M21 38 L15 58 L22 55 L26 61 L31 42 Z" fill="#3A3F9E"></path>
+<path d="M43 38 L49 58 L42 55 L38 61 L33 42 Z" fill="#262A78"></path>
+<circle cx="32" cy="29" r="23" fill="#0E5C4F"></circle>
+<circle cx="32" cy="27" r="23" fill="url(#gMedTeal)"></circle>
+<circle cx="32" cy="27" r="17" fill="url(#gMedTealIn)"></circle>
+<circle cx="32" cy="27" r="17" fill="none" stroke="#C4FFEE" stroke-opacity="0.5" stroke-width="1.2"></circle>
+<ellipse cx="23" cy="13" rx="7" ry="3.5" fill="#ffffff" opacity="0.6" filter="url(#fSoft)"></ellipse>
+</symbol>
+</svg>
