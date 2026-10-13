@@ -45,29 +45,28 @@ There is no Supabase seed data to delete. The former sample history existed only
 
 ## Deploy to your own server
 
-Requirements: Node.js 20.9 or newer, a domain with HTTPS (push notifications and installation require it), and a reverse proxy such as nginx or Caddy in front of the app.
+Requirements: Node.js 20.9 or newer, a domain pointed at the server, and HTTPS (push notifications and installation require it). The `deploy/` folder has a ready setup for a Linux server with systemd, [Caddy](https://caddyserver.com) for automatic HTTPS, and cron; any other HTTPS reverse proxy or process manager works too.
 
-1. Copy the repository to the server and create `.env.local` (or export the variables) with every value from `.env.example`. Set `NEXT_PUBLIC_CONTACT_EMAIL` to the address shown on `/privacy` and `/delete-account`.
-2. Build and start:
-
-   ```sh
-   npm ci
-   npm run build
-   PORT=3000 npm start
-   ```
-
-   Rebuild whenever a `NEXT_PUBLIC_*` value changes; they are inlined at build time. Keep the process running with systemd or pm2, and proxy your HTTPS domain to port 3000.
-
-3. In Supabase → Authentication → URL Configuration, set Site URL to the HTTPS origin and add it to Redirect URLs.
-4. Trigger reminders every minute. On your own server a crontab entry is simplest (Supabase Cron, below, also works):
+1. **Install and build** as a dedicated `saff` user in `/opt/saff`:
 
    ```sh
-   * * * * * curl -fsS -m 55 -H "Authorization: Bearer $CRON_SECRET" https://YOUR_DOMAIN/api/jobs/reminders > /dev/null
+   sudo useradd --system --create-home saff
+   sudo git clone <repository> /opt/saff && sudo chown -R saff: /opt/saff
+   cd /opt/saff
+   sudo -u saff cp .env.example .env.local   # fill in every value, then: chmod 600 .env.local
+   sudo -u saff npm ci
+   sudo -u saff npm run build
    ```
 
-   Without this, reminders never send and every nudge fails with “Prayer times are being prepared”.
+   Use the same VAPID keys as before; browsers' existing push subscriptions are tied to the public key. Set `NEXT_PUBLIC_CONTACT_EMAIL` for `/privacy` and `/delete-account`. Rebuild whenever a `NEXT_PUBLIC_*` value changes, because they are inlined at build time.
 
-5. Smoke test with two accounts: sign in by code, finish setup, record a prayer, share an invite link, join from the second account, enable notifications, and send a nudge.
+2. **Run the app** on `127.0.0.1:3000`: copy `deploy/saff.service` to `/etc/systemd/system/`, then `sudo systemctl enable --now saff`.
+3. **Serve HTTPS**: put your domain in `deploy/Caddyfile`, copy it to `/etc/caddy/Caddyfile`, and `sudo systemctl reload caddy`.
+4. **Trigger reminders every minute**: copy `deploy/saff-reminders.cron` to `/etc/cron.d/saff-reminders`. It runs `deploy/run-reminders.sh`, which reads `CRON_SECRET` from `.env.local` and calls the worker locally. Without it, reminders never send and every nudge fails with “Prayer times are being prepared”. (Supabase Cron, below, is an alternative.)
+5. **Point Supabase at the domain**: in Authentication → URL Configuration, set Site URL to the HTTPS origin and add it to Redirect URLs.
+6. **Smoke test** with two accounts: sign in by code, finish setup, record a prayer, share an invite link, join from the second account, enable notifications, and send a nudge.
+
+To ship an update later, run `deploy/update.sh` as the `saff` user (it pulls, installs, builds, and restarts; requests may fail briefly during the build).
 
 For the Play Store listing, use `https://YOUR_DOMAIN/privacy` as the privacy policy and `https://YOUR_DOMAIN/delete-account` as the account deletion URL.
 
