@@ -1,0 +1,17 @@
+# /etc/systemd/system/saff.service
+[Unit]
+Description=Saff web app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=saff
+WorkingDirectory=/opt/saff
+Environment=NODE_ENV=production
+# next start reads .env.local from the working directory. If Node came from nvm, use that node's full path.
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
