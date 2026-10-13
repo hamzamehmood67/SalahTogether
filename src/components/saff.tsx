@@ -239,7 +239,9 @@ export default function Saff() {
     [pickedOrb, setPickedOrb] = useState<number | null>(null),
     [devicePush, setDevicePush] = useState<PushState>("off"),
     [invited, setInvited] = useState(""),
-    [skippedSetup, setSkippedSetup] = useState(false);
+    [skippedSetup, setSkippedSetup] = useState(false),
+    [codeSent, setCodeSent] = useState(false),
+    [code, setCode] = useState("");
   const invitePrompted = useRef(false);
   useEffect(() => {
     setSheet(null);
@@ -418,9 +420,22 @@ export default function Saff() {
     setTab(next);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
+  async function sendCode() {
+    if (!supabase)
+      throw new Error("Sign-in is not available until Supabase is configured.");
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: { emailRedirectTo: window.location.origin },
+    });
+    if (error) throw error;
+  }
   function open(type: typeof sheet) {
     setDraft(settings);
     setFormValue("");
+    if (type === "auth") {
+      setCodeSent(false);
+      setCode("");
+    }
     setSheet(type);
     if (type === "settings" && supabase)
       pushState(supabase)
@@ -1828,27 +1843,21 @@ export default function Saff() {
                 </button>
               </form>
             )}
-            {sheet === "auth" && (
+            {sheet === "auth" && !codeSent && (
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   run(async () => {
-                    if (!supabase)
-                      throw new Error(
-                        "Sign-in is not available until Supabase is configured.",
-                      );
-                    const { error } = await supabase.auth.signInWithOtp({
-                      email,
-                      options: { emailRedirectTo: window.location.origin },
-                    });
-                    if (error) throw error;
-                    notify("Check your email for a sign-in link.");
+                    await sendCode();
+                    setCodeSent(true);
+                    notify("Check your email for your sign-in code.");
                   });
                 }}
               >
                 <p className="muted">
-                  One account for your prayers, your circles, and wherever life
-                  takes you.
+                  {invited
+                    ? "You’ve been invited to a circle. Sign in to join it."
+                    : "One account for your prayers, your circles, and wherever life takes you."}
                 </p>
                 <label>
                   Email address
@@ -1872,11 +1881,82 @@ export default function Saff() {
                   disabled={pending || !supabase}
                 >
                   <Mail size={17} />
-                  Send sign-in link
+                  Email me a sign-in code
                 </button>
                 <p className="fine-print">
-                  We’ll email you a secure link. No password to remember.
+                  We’ll email you a short code and a secure link. No password to
+                  remember. By continuing you agree to our{" "}
+                  <a href="/privacy" target="_blank" className="mint-text">
+                    privacy policy
+                  </a>
+                  .
                 </p>
+              </form>
+            )}
+            {sheet === "auth" && codeSent && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  run(async () => {
+                    const { error } = await supabase!.auth.verifyOtp({
+                      email,
+                      token: code.replace(/\s/g, ""),
+                      type: "email",
+                    });
+                    if (error)
+                      throw new Error(
+                        /expired|invalid/i.test(error.message)
+                          ? "That code is incorrect or has expired. Check the latest email or send a new code."
+                          : error.message,
+                      );
+                  });
+                }}
+              >
+                <p className="muted">
+                  Enter the code we sent to <strong>{email}</strong>, or open
+                  the link in that email on this device.
+                </p>
+                <label>
+                  Sign-in code
+                  <input
+                    autoFocus
+                    required
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    pattern="[0-9 ]{6,12}"
+                    maxLength={12}
+                    placeholder="123456"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                  />
+                </label>
+                <button className="primary full" disabled={pending}>
+                  Sign in <ArrowRight size={17} />
+                </button>
+                <button
+                  type="button"
+                  className="text-button full"
+                  disabled={pending}
+                  onClick={() =>
+                    run(async () => {
+                      await sendCode();
+                      setCode("");
+                      notify("A new code is on its way.");
+                    })
+                  }
+                >
+                  Send a new code
+                </button>
+                <button
+                  type="button"
+                  className="text-button full"
+                  onClick={() => {
+                    setCodeSent(false);
+                    setCode("");
+                  }}
+                >
+                  Use a different email
+                </button>
               </form>
             )}
           </Sheet>

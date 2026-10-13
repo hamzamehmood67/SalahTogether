@@ -98,6 +98,41 @@ export async function mockSupabase(
     let result: unknown = null;
     if (url.pathname.includes("/auth/v1/")) {
       if (method === "otp") state.otpRequests++;
+      if (method === "verify") {
+        if (payload.token !== "123456") {
+          await route.fulfill({
+            status: 403,
+            json: {
+              code: 403,
+              error_code: "otp_expired",
+              msg: "Token has expired or is invalid",
+            },
+          });
+          return;
+        }
+        const encode = (value: object) =>
+          Buffer.from(JSON.stringify(value)).toString("base64url");
+        await route.fulfill({
+          json: {
+            access_token:
+              encode({ alg: "HS256", typ: "JWT" }) +
+              "." +
+              encode({ sub: id, exp: 2147483647, role: "authenticated" }) +
+              ".test-signature",
+            token_type: "bearer",
+            expires_in: 3600,
+            expires_at: 2147483647,
+            refresh_token: "test-refresh",
+            user: {
+              id,
+              email: payload.email,
+              aud: "authenticated",
+              role: "authenticated",
+            },
+          },
+        });
+        return;
+      }
       await route.fulfill({
         status: method === "logout" ? 204 : 200,
         contentType: "application/json",

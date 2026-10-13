@@ -27,7 +27,7 @@ test("old demo data is discarded and visitors must sign in", async ({
   );
   await page.getByRole("button", { name: "Continue individually" }).click();
   await page.getByLabel("Email address").fill("amina@example.com");
-  await page.getByRole("button", { name: "Send sign-in link" }).click();
+  await page.getByRole("button", { name: "Email me a sign-in code" }).click();
   await expect(page.getByRole("status")).toContainText("Check your email");
   expect(state.otpRequests).toBe(1);
   await expect(page.locator(".reference-today")).toHaveCount(0);
@@ -118,4 +118,31 @@ test("signed-out visitors keep an invite through sign-in", async ({ page }) => {
   );
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("visitors sign in with the emailed code", async ({ page }) => {
+  const state = await mockSupabase(page, {
+    signedIn: false,
+    populated: false,
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Continue individually" }).click();
+  await page.getByLabel("Email address").fill("amina@example.com");
+  await page.getByRole("button", { name: "Email me a sign-in code" }).click();
+  const code = page.getByLabel("Sign-in code");
+  await expect(code).toBeVisible();
+  await expect(page.getByText("amina@example.com")).toBeVisible();
+  await code.fill("000000");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "incorrect or has expired",
+  );
+  await page.getByRole("button", { name: "Send a new code" }).click();
+  await expect(page.getByRole("status")).toContainText("new code");
+  expect(state.otpRequests).toBe(2);
+  await code.fill("123 456");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Let’s set up your space" }),
+  ).toBeVisible();
 });
