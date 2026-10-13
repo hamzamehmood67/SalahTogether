@@ -39,9 +39,23 @@ test("new account starts empty, persists its first prayer, and clears on sign-ou
   const state = await mockSupabase(page, { populated: false });
   await page.clock.setFixedTime(new Date("2026-09-29T11:50:00Z"));
   await page.goto("/");
+  const setup = page.getByRole("dialog", { name: "Let’s set up your space" });
+  await expect(setup).toBeVisible();
+  await expect(setup.getByLabel("Your name")).toHaveValue("");
+  await setup.getByLabel("Your name").fill("Amina");
+  await setup.getByRole("radio", { name: /Dubai, AE/ }).click();
+  await setup.getByRole("radio", { name: /Lahore, PK/ }).click();
+  await setup.getByRole("button", { name: "Start my journey" }).click();
+  await expect(setup).toHaveCount(0);
+  expect(state.settings).toMatchObject({
+    name: "Amina",
+    city: "Lahore, PK",
+    timezone: "Asia/Karachi",
+    onboarded: true,
+  });
   await expect(
     page.getByRole("heading", {
-      name: "Assalamu alaikum, Friend",
+      name: "Assalamu alaikum, Amina",
       exact: true,
     }),
   ).toBeVisible();

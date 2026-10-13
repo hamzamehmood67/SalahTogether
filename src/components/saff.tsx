@@ -36,6 +36,7 @@ import {
   NAMES,
   ARABIC,
   Settings,
+  DEFAULT_SETTINGS,
   CITIES,
   RecordItem,
   Prayer,
@@ -179,6 +180,30 @@ function Sheet({
     </motion.div>
   );
 }
+const INVITE_KEY = "saff-join";
+function rememberInvite(code: string) {
+  const clean = code.trim().toUpperCase().slice(0, 12);
+  try {
+    localStorage.setItem(INVITE_KEY, clean);
+  } catch {
+    /* Storage may be disabled; the invite still works for this visit. */
+  }
+  return clean;
+}
+function recalledInvite() {
+  try {
+    return localStorage.getItem(INVITE_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+function forgetInvite() {
+  try {
+    localStorage.removeItem(INVITE_KEY);
+  } catch {
+    /* Nothing to forget. */
+  }
+}
 export default function Saff() {
   const app = useSaff();
   const { settings, records, circles, ready, welcome, userId } = app;
@@ -194,6 +219,7 @@ export default function Saff() {
       | "auth"
       | "member"
       | "circles"
+      | "onboarding"
     >(null),
     [now, setNow] = useState(new Date()),
     [toast, setToast] = useState(""),
@@ -211,7 +237,10 @@ export default function Saff() {
     [formValue, setFormValue] = useState(""),
     [draft, setDraft] = useState<Settings>(settings),
     [pickedOrb, setPickedOrb] = useState<number | null>(null),
-    [devicePush, setDevicePush] = useState<PushState>("off");
+    [devicePush, setDevicePush] = useState<PushState>("off"),
+    [invited, setInvited] = useState(""),
+    [skippedSetup, setSkippedSetup] = useState(false);
+  const invitePrompted = useRef(false);
   useEffect(() => {
     setSheet(null);
     setNudged({});
@@ -220,6 +249,55 @@ export default function Saff() {
   useEffect(() => {
     if (!welcome) setSheet((current) => (current === "auth" ? null : current));
   }, [welcome]);
+  useEffect(() => {
+    // An invite link (/join/CODE → /?join=CODE) is kept until the visitor is signed in and set up.
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("join");
+    if (code) {
+      params.delete("join");
+      const query = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname +
+          (query ? "?" + query : "") +
+          window.location.hash,
+      );
+    }
+    const pending = code ? rememberInvite(code) : recalledInvite();
+    if (pending) setInvited(pending);
+  }, []);
+  useEffect(() => {
+    if (!welcome && userId && !settings.onboarded) {
+      setDraft({
+        ...settings,
+        name: settings.name === DEFAULT_SETTINGS.name ? "" : settings.name,
+      });
+      setSheet((current) => current ?? "onboarding");
+    }
+  }, [welcome, userId, settings.onboarded]);
+  useEffect(() => {
+    if (!ready || !invited || sheet) return;
+    if (!userId) {
+      // Ask once; closing the sign-in sheet must not reopen it.
+      if (!invitePrompted.current) setSheet("auth");
+      invitePrompted.current = true;
+      return;
+    }
+    if (welcome || (!settings.onboarded && !skippedSetup)) return;
+    forgetInvite();
+    setInvited("");
+    setFormValue(invited);
+    setSheet("join");
+  }, [
+    ready,
+    invited,
+    sheet,
+    userId,
+    welcome,
+    settings.onboarded,
+    skippedSetup,
+  ]);
   const today = dateKey(now, settings.timezone);
   const times = useMemo(() => prayerTimes(settings, today), [settings, today]);
   const done = countDay(records, today);
@@ -1142,9 +1220,13 @@ export default function Saff() {
                 auth: "Welcome to Saff",
                 member: (viewedMember?.name || "Member") + "’s journey",
                 circles: "Your circles",
+                onboarding: "Let’s set up your space",
               }[sheet]
             }
-            close={() => setSheet(null)}
+            close={() => {
+              if (sheet === "onboarding") setSkippedSetup(true);
+              setSheet(null);
+            }}
           >
             {sheet === "circles" && (
               <>
@@ -1250,6 +1332,101 @@ export default function Saff() {
                   ))}
                 </div>
               </>
+            )}
+            {sheet === "onboarding" && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  run(async () => {
+                    await app.saveSettings({ ...draft, onboarded: true });
+                    setSheet(null);
+                    notify("Assalamu alaikum, " + draft.name.trim() + ".");
+                  });
+                }}
+              >
+                <p className="muted">
+                  Your circles will see this name beside your prayers. Your
+                  location only sets your prayer times.
+                </p>
+                <label>
+                  Your name
+                  <input
+                    autoFocus
+                    required
+                    maxLength={50}
+                    autoComplete="given-name"
+                    placeholder="e.g. Amina"
+                    value={draft.name}
+                    onChange={(e) =>
+                      setDraft({ ...draft, name: e.target.value })
+                    }
+                  />
+                </label>
+                <div className="section-title">
+                  <h3>Where do you pray?</h3>
+                </div>
+                <div className="city-list" role="radiogroup">
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={draft.city === "Current location"}
+                    onClick={() => {
+                      if (!navigator.geolocation) {
+                        notify("Location unavailable. Choose a city below.");
+                        return;
+                      }
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) =>
+                          setDraft((d) => ({
+                            ...d,
+                            latitude: pos.coords.latitude,
+                            longitude: pos.coords.longitude,
+                            city: "Current location",
+                            timezone:
+                              Intl.DateTimeFormat().resolvedOptions().timeZone,
+                          })),
+                        () =>
+                          notify("Location unavailable. Choose a city below."),
+                      );
+                    }}
+                  >
+                    <span>
+                      <strong>Use my current location</strong>
+                      <small>Most accurate prayer times</small>
+                    </span>
+                    {draft.city === "Current location" ? (
+                      <Check size={18} />
+                    ) : (
+                      <LocateFixed size={18} />
+                    )}
+                  </button>
+                  {CITIES.map((c) => (
+                    <button
+                      key={c.city}
+                      type="button"
+                      role="radio"
+                      aria-checked={draft.city === c.city}
+                      onClick={() => setDraft((d) => ({ ...d, ...c }))}
+                    >
+                      <span>
+                        <strong>{c.city}</strong>
+                        <small>
+                          {c.method} method · {c.hanafi ? "Hanafi" : "Standard"}{" "}
+                          Asr
+                        </small>
+                      </span>
+                      {draft.city === c.city && <Check size={18} />}
+                    </button>
+                  ))}
+                </div>
+                <p className="fine-print">
+                  You can fine-tune the calculation method and reminders later
+                  in settings.
+                </p>
+                <button className="primary full" disabled={pending}>
+                  Start my journey <ArrowRight size={17} />
+                </button>
+              </form>
             )}
             {sheet === "settings" && (
               <form
