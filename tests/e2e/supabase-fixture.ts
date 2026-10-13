@@ -28,7 +28,11 @@ export async function mockSupabase(
       ).flat()
     : [];
   const state = {
-    settings: { ...DEFAULT_SETTINGS, name: populated ? "Yusuf" : "Friend" },
+    settings: {
+      ...DEFAULT_SETTINGS,
+      name: populated ? "Yusuf" : "Friend",
+      onboarded: populated,
+    },
     records,
     circles: (populated
       ? [

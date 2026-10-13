@@ -15,6 +15,7 @@ export interface Settings {
   nudges: boolean;
   offset: number;
   reminderPrayers: Prayer[];
+  onboarded: boolean;
 }
 export interface RecordItem {
   date: string;
@@ -48,9 +49,18 @@ export const DEFAULT_SETTINGS: Settings = {
   nudges: false,
   offset: 0,
   reminderPrayers: [...PRAYERS],
+  onboarded: false,
 };
+// Location fields only: picking a city must not reset other preferences.
 export const CITIES = [
-  DEFAULT_SETTINGS,
+  {
+    city: DEFAULT_SETTINGS.city,
+    latitude: DEFAULT_SETTINGS.latitude,
+    longitude: DEFAULT_SETTINGS.longitude,
+    timezone: DEFAULT_SETTINGS.timezone,
+    method: DEFAULT_SETTINGS.method,
+    hanafi: DEFAULT_SETTINGS.hanafi,
+  },
   {
     city: "Karachi, PK",
     latitude: 24.8607,
