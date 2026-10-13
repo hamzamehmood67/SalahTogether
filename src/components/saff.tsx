@@ -1226,7 +1226,7 @@ export default function Saff() {
       <AnimatePresence>
         {toast && (sheet || tab === "insights" || welcome) && (
           <motion.div
-            className="toast"
+            className={"toast" + (sheet ? " over-sheet" : "")}
             role="status"
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}

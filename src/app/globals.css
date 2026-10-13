@@ -2003,6 +2003,11 @@ small {
     max-width: 600px;
     margin: auto;
   }
+  /* Bottom sheets hold inputs and actions; keep messages clear of them. */
+  .toast.over-sheet {
+    top: calc(16px + env(safe-area-inset-top));
+    bottom: auto;
+  }
   .page-footer {
     margin-top: 28px;
   }
@@ -2649,6 +2654,12 @@ button.member-name {
 .doc-page ul,
 .doc-page ol {
   padding-left: 22px;
+}
+.doc-page ul {
+  list-style: disc;
+}
+.doc-page ol {
+  list-style: decimal;
 }
 .doc-page li {
   margin-bottom: 8px;
