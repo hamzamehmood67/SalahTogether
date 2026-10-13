@@ -20,6 +20,7 @@ import {
   LogOut,
   Copy,
   Bell,
+  BellOff,
   Share2,
   Menu,
   Mail,
@@ -48,6 +49,7 @@ import {
   badges,
 } from "@/lib/domain";
 import { supabase } from "@/lib/supabase";
+import { PushState, pushState, enablePush, disablePush } from "@/lib/push";
 import TodayReference from "./reference/today";
 import CircleReference from "./reference/circle";
 import InsightsReference from "./reference/insights";
@@ -208,7 +210,8 @@ export default function Saff() {
     [email, setEmail] = useState(""),
     [formValue, setFormValue] = useState(""),
     [draft, setDraft] = useState<Settings>(settings),
-    [pickedOrb, setPickedOrb] = useState<number | null>(null);
+    [pickedOrb, setPickedOrb] = useState<number | null>(null),
+    [devicePush, setDevicePush] = useState<PushState>("off");
   useEffect(() => {
     setSheet(null);
     setNudged({});
@@ -341,6 +344,10 @@ export default function Saff() {
     setDraft(settings);
     setFormValue("");
     setSheet(type);
+    if (type === "settings" && supabase)
+      pushState(supabase)
+        .then(setDevicePush)
+        .catch(() => setDevicePush("off"));
   }
   async function invite() {
     if (circle?.code) {
@@ -1426,56 +1433,44 @@ export default function Saff() {
                     }
                   />
                 </label>
-                <button
-                  type="button"
-                  className="secondary full"
-                  onClick={() =>
-                    run(async () => {
-                      if (!userId || !supabase)
-                        throw new Error(
-                          "Push reminders need a connected Supabase account and notification configuration.",
-                        );
-                      if (!("PushManager" in window))
-                        throw new Error(
-                          "This browser does not support push. On iPhone, install Saff to your home screen first.",
-                        );
-                      const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-                      if (!key)
-                        throw new Error(
-                          "Push notifications have not been configured yet.",
-                        );
-                      const permission = await Notification.requestPermission();
-                      if (permission !== "granted")
-                        throw new Error(
-                          "Notifications are not enabled. Your tracker still works normally.",
-                        );
-                      const reg = await navigator.serviceWorker.ready;
-                      const encoded = key.replace(/-/g, "+").replace(/_/g, "/");
-                      const bytes = Uint8Array.from(atob(encoded), (c) =>
-                        c.charCodeAt(0),
-                      );
-                      const sub = await reg.pushManager.subscribe({
-                        userVisibleOnly: true,
-                        applicationServerKey: bytes,
-                      });
-                      const { error } = await supabase!
-                        .from("push_subscriptions")
-                        .upsert(
-                          {
-                            user_id: userId,
-                            endpoint: sub.endpoint,
-                            subscription: sub.toJSON(),
-                          },
-                          { onConflict: "endpoint" },
-                        );
-                      if (error) throw error;
-                      notify("This device is ready for reminders.");
-                    })
-                  }
-                >
-                  <Bell size={16} />
-                  Enable notifications on this device
-                </button>
+                {devicePush === "on" ? (
+                  <button
+                    type="button"
+                    className="secondary full"
+                    onClick={() =>
+                      run(async () => {
+                        await disablePush(supabase!);
+                        setDevicePush("off");
+                        notify("This device will no longer receive reminders.");
+                      })
+                    }
+                  >
+                    <BellOff size={16} />
+                    Turn off notifications on this device
+                  </button>
+                ) : devicePush === "blocked" ? (
+                  <p className="fine-print">
+                    Notifications are blocked for Saff in this browser. Allow
+                    them in your browser’s site settings to get reminders here.
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    className="secondary full"
+                    onClick={() =>
+                      run(async () => {
+                        if (!userId || !supabase)
+                          throw new Error("Please sign in to continue.");
+                        await enablePush(supabase);
+                        setDevicePush("on");
+                        notify("This device is ready for reminders.");
+                      })
+                    }
+                  >
+                    <Bell size={16} />
+                    Enable notifications on this device
+                  </button>
+                )}
                 <button className="primary full" disabled={pending}>
                   Save preferences{" "}
                   {pending ? (
