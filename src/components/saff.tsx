@@ -21,6 +21,7 @@ import {
   Copy,
   Bell,
   BellOff,
+  Trash2,
   Share2,
   Menu,
   Mail,
@@ -220,6 +221,7 @@ export default function Saff() {
       | "member"
       | "circles"
       | "onboarding"
+      | "delete"
     >(null),
     [now, setNow] = useState(new Date()),
     [toast, setToast] = useState(""),
@@ -1253,6 +1255,7 @@ export default function Saff() {
                 member: (viewedMember?.name || "Member") + "’s journey",
                 circles: "Your circles",
                 onboarding: "Let’s set up your space",
+                delete: "Delete your account",
               }[sheet]
             }
             close={() => {
@@ -1712,6 +1715,21 @@ export default function Saff() {
                     Sign out
                   </button>
                 )}
+                {supabase && (
+                  <button
+                    type="button"
+                    className="text-button danger"
+                    onClick={() => open("delete")}
+                  >
+                    <Trash2 size={16} />
+                    Delete account
+                  </button>
+                )}
+                <p className="fine-print">
+                  <a href="/privacy" target="_blank" className="mint-text">
+                    Privacy policy
+                  </a>
+                </p>
               </form>
             )}
             {(sheet === "create" || sheet === "join") && (
@@ -1810,6 +1828,43 @@ export default function Saff() {
                   </>
                 )}
               </>
+            )}
+            {sheet === "delete" && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  run(async () => {
+                    await app.deleteAccount();
+                    setSheet(null);
+                    notify("Your account and prayer history were deleted.");
+                  });
+                }}
+              >
+                <p className="muted">
+                  This permanently deletes your prayer history, settings and
+                  reminders, and removes you from every circle. Circles you own
+                  pass to their longest-standing member; circles with no one
+                  else in them are deleted. This cannot be undone.
+                </p>
+                <label>
+                  Type DELETE to confirm
+                  <input
+                    autoFocus
+                    required
+                    autoComplete="off"
+                    autoCapitalize="characters"
+                    value={formValue}
+                    onChange={(e) => setFormValue(e.target.value)}
+                  />
+                </label>
+                <button
+                  className="primary destructive full"
+                  disabled={pending || formValue.trim() !== "DELETE"}
+                >
+                  <Trash2 size={17} />
+                  Delete my account
+                </button>
+              </form>
             )}
             {sheet === "goal" && (
               <form

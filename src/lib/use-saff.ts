@@ -218,6 +218,14 @@ export function useSaff() {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   }
+  async function deleteAccount() {
+    const { client } = account();
+    await detachDevice(client);
+    const { error } = await client.rpc("delete_account");
+    if (error) throw error;
+    // The account no longer exists, so only this browser's session is cleared.
+    await client.auth.signOut({ scope: "local" });
+  }
   async function setGoal(circle: string, goal: number) {
     const { client, id } = account();
     const { error } = await client.rpc("set_circle_goal", {
@@ -248,5 +256,6 @@ export function useSaff() {
     nudge,
     setGoal,
     signOut,
+    deleteAccount,
   };
 }

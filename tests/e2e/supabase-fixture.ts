@@ -56,6 +56,7 @@ export async function mockSupabase(
       : []) as Circle[],
     failDashboard: options.failDashboard ?? false,
     otpRequests: 0,
+    deleted: false,
   };
   if (options.signedIn !== false) {
     await page.addInitScript(
@@ -194,6 +195,10 @@ export async function mockSupabase(
           { id, name: state.settings.name, records: state.records },
         ],
       });
+    } else if (method === "delete_account") {
+      state.deleted = true;
+      state.records = [];
+      state.circles = [];
     } else if (method === "set_circle_goal") {
       state.circles.find((c) => c.id === payload.p_circle)!.goal =
         payload.p_goal;

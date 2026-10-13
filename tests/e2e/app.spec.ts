@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
 import { mockSupabase } from "./supabase-fixture";
+let state: Awaited<ReturnType<typeof mockSupabase>>;
 test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(new Date("2026-09-29T11:50:00Z"));
-  await mockSupabase(page);
+  state = await mockSupabase(page);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Yusuf" })).toBeVisible();
 });
@@ -124,4 +125,25 @@ test("invite links open a prefilled join sheet and owners can share one", async 
   expect(
     await page.evaluate(() => localStorage.getItem("saff-join")),
   ).toBeNull();
+});
+
+test("deleting the account needs typed confirmation and signs out", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "Lahore, PK" }).click();
+  await page.getByRole("button", { name: "Calculation settings" }).click();
+  await expect(
+    page.getByRole("link", { name: "Privacy policy" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Delete account" }).click();
+  const dialog = page.getByRole("dialog", { name: "Delete your account" });
+  const confirm = dialog.getByRole("button", { name: "Delete my account" });
+  await expect(confirm).toBeDisabled();
+  await dialog.getByLabel("Type DELETE to confirm").fill("DELETE");
+  await confirm.click();
+  await expect(page.locator(".reference-welcome")).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("deleted");
+  expect(state.deleted).toBe(true);
+  await page.reload();
+  await expect(page.locator(".reference-welcome")).toBeVisible();
 });

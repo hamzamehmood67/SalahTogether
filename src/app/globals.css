@@ -837,6 +837,10 @@ small {
 .danger {
   color: #e9a4b0;
 }
+.primary.destructive {
+  background: #e9a4b0;
+  color: #3a0f1f;
+}
 .card {
   background: linear-gradient(135deg, #181e3d, #141a37);
   border: 1px solid var(--line);
