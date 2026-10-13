@@ -73,7 +73,10 @@ test("create circle with disclosure and edit goal", async ({ page }) => {
   await page.getByRole("button", { name: "Edit monthly circle goal" }).click();
   await page.getByLabel("Monthly prayer goal").fill("100");
   await page.getByRole("button", { name: "Save goal" }).click();
-  await expect(page.getByRole("status")).toContainText("updated");
+  // The previous message may still be fading out of the sheet's toast slot.
+  await expect(
+    page.getByRole("status").filter({ hasText: "Circle goal updated" }),
+  ).toBeVisible();
 });
 test("all views fit phone widths and desktop", async ({ page }) => {
   for (const width of [320, 360, 390, 430, 768, 1440]) {
