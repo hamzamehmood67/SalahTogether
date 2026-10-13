@@ -7,3 +7,4 @@ playwright-report/
 test-results/
 
 .next-e2e/
+.DS_Store

@@ -20,6 +20,8 @@ import {
   LogOut,
   Copy,
   Bell,
+  BellOff,
+  Trash2,
   Share2,
   Menu,
   Mail,
@@ -35,6 +37,7 @@ import {
   NAMES,
   ARABIC,
   Settings,
+  DEFAULT_SETTINGS,
   CITIES,
   RecordItem,
   Prayer,
@@ -48,6 +51,7 @@ import {
   badges,
 } from "@/lib/domain";
 import { supabase } from "@/lib/supabase";
+import { PushState, pushState, enablePush, disablePush } from "@/lib/push";
 import TodayReference from "./reference/today";
 import CircleReference from "./reference/circle";
 import InsightsReference from "./reference/insights";
@@ -177,6 +181,30 @@ function Sheet({
     </motion.div>
   );
 }
+const INVITE_KEY = "saff-join";
+function rememberInvite(code: string) {
+  const clean = code.trim().toUpperCase().slice(0, 12);
+  try {
+    localStorage.setItem(INVITE_KEY, clean);
+  } catch {
+    /* Storage may be disabled; the invite still works for this visit. */
+  }
+  return clean;
+}
+function recalledInvite() {
+  try {
+    return localStorage.getItem(INVITE_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+function forgetInvite() {
+  try {
+    localStorage.removeItem(INVITE_KEY);
+  } catch {
+    /* Nothing to forget. */
+  }
+}
 export default function Saff() {
   const app = useSaff();
   const { settings, records, circles, ready, welcome, userId } = app;
@@ -192,6 +220,8 @@ export default function Saff() {
       | "auth"
       | "member"
       | "circles"
+      | "onboarding"
+      | "delete"
     >(null),
     [now, setNow] = useState(new Date()),
     [toast, setToast] = useState(""),
@@ -208,7 +238,13 @@ export default function Saff() {
     [email, setEmail] = useState(""),
     [formValue, setFormValue] = useState(""),
     [draft, setDraft] = useState<Settings>(settings),
-    [pickedOrb, setPickedOrb] = useState<number | null>(null);
+    [pickedOrb, setPickedOrb] = useState<number | null>(null),
+    [devicePush, setDevicePush] = useState<PushState>("off"),
+    [invited, setInvited] = useState(""),
+    [skippedSetup, setSkippedSetup] = useState(false),
+    [codeSent, setCodeSent] = useState(false),
+    [code, setCode] = useState("");
+  const invitePrompted = useRef(false);
   useEffect(() => {
     setSheet(null);
     setNudged({});
@@ -217,6 +253,55 @@ export default function Saff() {
   useEffect(() => {
     if (!welcome) setSheet((current) => (current === "auth" ? null : current));
   }, [welcome]);
+  useEffect(() => {
+    // An invite link (/join/CODE → /?join=CODE) is kept until the visitor is signed in and set up.
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("join");
+    if (code) {
+      params.delete("join");
+      const query = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname +
+          (query ? "?" + query : "") +
+          window.location.hash,
+      );
+    }
+    const pending = code ? rememberInvite(code) : recalledInvite();
+    if (pending) setInvited(pending);
+  }, []);
+  useEffect(() => {
+    if (!welcome && userId && !settings.onboarded) {
+      setDraft({
+        ...settings,
+        name: settings.name === DEFAULT_SETTINGS.name ? "" : settings.name,
+      });
+      setSheet((current) => current ?? "onboarding");
+    }
+  }, [welcome, userId, settings.onboarded]);
+  useEffect(() => {
+    if (!ready || !invited || sheet) return;
+    if (!userId) {
+      // Ask once; closing the sign-in sheet must not reopen it.
+      if (!invitePrompted.current) setSheet("auth");
+      invitePrompted.current = true;
+      return;
+    }
+    if (welcome || (!settings.onboarded && !skippedSetup)) return;
+    forgetInvite();
+    setInvited("");
+    setFormValue(invited);
+    setSheet("join");
+  }, [
+    ready,
+    invited,
+    sheet,
+    userId,
+    welcome,
+    settings.onboarded,
+    skippedSetup,
+  ]);
   const today = dateKey(now, settings.timezone);
   const times = useMemo(() => prayerTimes(settings, today), [settings, today]);
   const done = countDay(records, today);
@@ -337,20 +422,54 @@ export default function Saff() {
     setTab(next);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
+  async function sendCode() {
+    if (!supabase)
+      throw new Error("Sign-in is not available until Supabase is configured.");
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: { emailRedirectTo: window.location.origin },
+    });
+    if (error) throw error;
+  }
   function open(type: typeof sheet) {
     setDraft(settings);
     setFormValue("");
+    if (type === "auth") {
+      setCodeSent(false);
+      setCode("");
+    }
     setSheet(type);
+    if (type === "settings" && supabase)
+      pushState(supabase)
+        .then(setDevicePush)
+        .catch(() => setDevicePush("off"));
+  }
+  const inviteLink =
+    circle?.code && typeof window !== "undefined"
+      ? window.location.origin + "/join/" + circle.code
+      : "";
+  async function shareInvite() {
+    if (!circle?.code) return false;
+    if (!navigator.share) return false;
+    try {
+      await navigator.share({
+        title: "Join " + circle.name + " on Saff",
+        text: `Join our prayer circle “${circle.name}” on Saff. Invite code: ${circle.code}`,
+        url: inviteLink,
+      });
+    } catch (e) {
+      // Dismissing the share sheet is not an error.
+      if ((e as Error).name !== "AbortError") throw e;
+    }
+    return true;
   }
   async function invite() {
-    if (circle?.code) {
-      try {
-        await navigator.clipboard.writeText(circle.code);
-        notify("Invite code copied. Share it with someone you love.");
-      } catch {
-        open("invite");
-      }
-    } else open("invite");
+    try {
+      if (await shareInvite()) return;
+    } catch {
+      /* Fall back to the invite sheet below. */
+    }
+    open("invite");
   }
   const selectedMonth = month || today.slice(0, 7);
   const [yearNum, monthNum] = selectedMonth.split("-").map(Number);
@@ -1002,15 +1121,7 @@ export default function Saff() {
             >
               Try again
             </button>
-            <button
-              className="secondary"
-              onClick={() =>
-                run(async () => {
-                  const result = await supabase!.auth.signOut();
-                  if (result.error) throw result.error;
-                })
-              }
-            >
+            <button className="secondary" onClick={() => run(app.signOut)}>
               Sign out
             </button>
           </>
@@ -1115,7 +1226,7 @@ export default function Saff() {
       <AnimatePresence>
         {toast && (sheet || tab === "insights" || welcome) && (
           <motion.div
-            className="toast"
+            className={"toast" + (sheet ? " over-sheet" : "")}
             role="status"
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -1143,9 +1254,14 @@ export default function Saff() {
                 auth: "Welcome to Saff",
                 member: (viewedMember?.name || "Member") + "’s journey",
                 circles: "Your circles",
+                onboarding: "Let’s set up your space",
+                delete: "Delete your account",
               }[sheet]
             }
-            close={() => setSheet(null)}
+            close={() => {
+              if (sheet === "onboarding") setSkippedSetup(true);
+              setSheet(null);
+            }}
           >
             {sheet === "circles" && (
               <>
@@ -1172,12 +1288,21 @@ export default function Saff() {
                   Join a circle
                 </button>
                 {circle?.owner === userId && (
-                  <button
-                    className="text-button full"
-                    onClick={() => open("goal")}
-                  >
-                    Edit monthly circle goal
-                  </button>
+                  <>
+                    <button
+                      className="text-button full"
+                      onClick={() => open("invite")}
+                    >
+                      <Share2 size={16} />
+                      Invite to {circle.name}
+                    </button>
+                    <button
+                      className="text-button full"
+                      onClick={() => open("goal")}
+                    >
+                      Edit monthly circle goal
+                    </button>
+                  </>
                 )}
                 {circle && (
                   <button
@@ -1251,6 +1376,101 @@ export default function Saff() {
                   ))}
                 </div>
               </>
+            )}
+            {sheet === "onboarding" && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  run(async () => {
+                    await app.saveSettings({ ...draft, onboarded: true });
+                    setSheet(null);
+                    notify("Assalamu alaikum, " + draft.name.trim() + ".");
+                  });
+                }}
+              >
+                <p className="muted">
+                  Your circles will see this name beside your prayers. Your
+                  location only sets your prayer times.
+                </p>
+                <label>
+                  Your name
+                  <input
+                    autoFocus
+                    required
+                    maxLength={50}
+                    autoComplete="given-name"
+                    placeholder="e.g. Amina"
+                    value={draft.name}
+                    onChange={(e) =>
+                      setDraft({ ...draft, name: e.target.value })
+                    }
+                  />
+                </label>
+                <div className="section-title">
+                  <h3>Where do you pray?</h3>
+                </div>
+                <div className="city-list" role="radiogroup">
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={draft.city === "Current location"}
+                    onClick={() => {
+                      if (!navigator.geolocation) {
+                        notify("Location unavailable. Choose a city below.");
+                        return;
+                      }
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) =>
+                          setDraft((d) => ({
+                            ...d,
+                            latitude: pos.coords.latitude,
+                            longitude: pos.coords.longitude,
+                            city: "Current location",
+                            timezone:
+                              Intl.DateTimeFormat().resolvedOptions().timeZone,
+                          })),
+                        () =>
+                          notify("Location unavailable. Choose a city below."),
+                      );
+                    }}
+                  >
+                    <span>
+                      <strong>Use my current location</strong>
+                      <small>Most accurate prayer times</small>
+                    </span>
+                    {draft.city === "Current location" ? (
+                      <Check size={18} />
+                    ) : (
+                      <LocateFixed size={18} />
+                    )}
+                  </button>
+                  {CITIES.map((c) => (
+                    <button
+                      key={c.city}
+                      type="button"
+                      role="radio"
+                      aria-checked={draft.city === c.city}
+                      onClick={() => setDraft((d) => ({ ...d, ...c }))}
+                    >
+                      <span>
+                        <strong>{c.city}</strong>
+                        <small>
+                          {c.method} method · {c.hanafi ? "Hanafi" : "Standard"}{" "}
+                          Asr
+                        </small>
+                      </span>
+                      {draft.city === c.city && <Check size={18} />}
+                    </button>
+                  ))}
+                </div>
+                <p className="fine-print">
+                  You can fine-tune the calculation method and reminders later
+                  in settings.
+                </p>
+                <button className="primary full" disabled={pending}>
+                  Start my journey <ArrowRight size={17} />
+                </button>
+              </form>
             )}
             {sheet === "settings" && (
               <form
@@ -1434,56 +1654,44 @@ export default function Saff() {
                     }
                   />
                 </label>
-                <button
-                  type="button"
-                  className="secondary full"
-                  onClick={() =>
-                    run(async () => {
-                      if (!userId || !supabase)
-                        throw new Error(
-                          "Push reminders need a connected Supabase account and notification configuration.",
-                        );
-                      if (!("PushManager" in window))
-                        throw new Error(
-                          "This browser does not support push. On iPhone, install Saff to your home screen first.",
-                        );
-                      const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-                      if (!key)
-                        throw new Error(
-                          "Push notifications have not been configured yet.",
-                        );
-                      const permission = await Notification.requestPermission();
-                      if (permission !== "granted")
-                        throw new Error(
-                          "Notifications are not enabled. Your tracker still works normally.",
-                        );
-                      const reg = await navigator.serviceWorker.ready;
-                      const encoded = key.replace(/-/g, "+").replace(/_/g, "/");
-                      const bytes = Uint8Array.from(atob(encoded), (c) =>
-                        c.charCodeAt(0),
-                      );
-                      const sub = await reg.pushManager.subscribe({
-                        userVisibleOnly: true,
-                        applicationServerKey: bytes,
-                      });
-                      const { error } = await supabase!
-                        .from("push_subscriptions")
-                        .upsert(
-                          {
-                            user_id: userId,
-                            endpoint: sub.endpoint,
-                            subscription: sub.toJSON(),
-                          },
-                          { onConflict: "endpoint" },
-                        );
-                      if (error) throw error;
-                      notify("This device is ready for reminders.");
-                    })
-                  }
-                >
-                  <Bell size={16} />
-                  Enable notifications on this device
-                </button>
+                {devicePush === "on" ? (
+                  <button
+                    type="button"
+                    className="secondary full"
+                    onClick={() =>
+                      run(async () => {
+                        await disablePush(supabase!);
+                        setDevicePush("off");
+                        notify("This device will no longer receive reminders.");
+                      })
+                    }
+                  >
+                    <BellOff size={16} />
+                    Turn off notifications on this device
+                  </button>
+                ) : devicePush === "blocked" ? (
+                  <p className="fine-print">
+                    Notifications are blocked for Saff in this browser. Allow
+                    them in your browser’s site settings to get reminders here.
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    className="secondary full"
+                    onClick={() =>
+                      run(async () => {
+                        if (!userId || !supabase)
+                          throw new Error("Please sign in to continue.");
+                        await enablePush(supabase);
+                        setDevicePush("on");
+                        notify("This device is ready for reminders.");
+                      })
+                    }
+                  >
+                    <Bell size={16} />
+                    Enable notifications on this device
+                  </button>
+                )}
                 <button className="primary full" disabled={pending}>
                   Save preferences{" "}
                   {pending ? (
@@ -1498,7 +1706,7 @@ export default function Saff() {
                     className="text-button danger"
                     onClick={() =>
                       run(async () => {
-                        await supabase!.auth.signOut();
+                        await app.signOut();
                         setSheet(null);
                       })
                     }
@@ -1507,6 +1715,21 @@ export default function Saff() {
                     Sign out
                   </button>
                 )}
+                {supabase && (
+                  <button
+                    type="button"
+                    className="text-button danger"
+                    onClick={() => open("delete")}
+                  >
+                    <Trash2 size={16} />
+                    Delete account
+                  </button>
+                )}
+                <p className="fine-print">
+                  <a href="/privacy" target="_blank" className="mint-text">
+                    Privacy policy
+                  </a>
+                </p>
               </form>
             )}
             {(sheet === "create" || sheet === "join") && (
@@ -1573,20 +1796,75 @@ export default function Saff() {
                   {circle?.code || "Ask the circle owner for an invite code"}
                 </div>
                 {circle?.code && (
-                  <button
-                    className="primary full"
-                    onClick={() =>
-                      run(async () => {
-                        await navigator.clipboard.writeText(circle.code!);
-                        notify("Invite code copied.");
-                      })
-                    }
-                  >
-                    <Copy size={17} />
-                    Copy invite code
-                  </button>
+                  <>
+                    <p className="invite-link" aria-label="Invite link">
+                      {inviteLink}
+                    </p>
+                    <button
+                      className="primary full"
+                      onClick={() =>
+                        run(async () => {
+                          if (await shareInvite()) return;
+                          await navigator.clipboard.writeText(inviteLink);
+                          notify("Invite link copied. Send it to your people.");
+                        })
+                      }
+                    >
+                      <Share2 size={17} />
+                      Share invite link
+                    </button>
+                    <button
+                      className="text-button full"
+                      onClick={() =>
+                        run(async () => {
+                          await navigator.clipboard.writeText(circle.code!);
+                          notify("Invite code copied.");
+                        })
+                      }
+                    >
+                      <Copy size={16} />
+                      Copy code only
+                    </button>
+                  </>
                 )}
               </>
+            )}
+            {sheet === "delete" && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  run(async () => {
+                    await app.deleteAccount();
+                    setSheet(null);
+                    notify("Your account and prayer history were deleted.");
+                  });
+                }}
+              >
+                <p className="muted">
+                  This permanently deletes your prayer history, settings and
+                  reminders, and removes you from every circle. Circles you own
+                  pass to their longest-standing member; circles with no one
+                  else in them are deleted. This cannot be undone.
+                </p>
+                <label>
+                  Type DELETE to confirm
+                  <input
+                    autoFocus
+                    required
+                    autoComplete="off"
+                    autoCapitalize="characters"
+                    value={formValue}
+                    onChange={(e) => setFormValue(e.target.value)}
+                  />
+                </label>
+                <button
+                  className="primary destructive full"
+                  disabled={pending || formValue.trim() !== "DELETE"}
+                >
+                  <Trash2 size={17} />
+                  Delete my account
+                </button>
+              </form>
             )}
             {sheet === "goal" && (
               <form
@@ -1620,27 +1898,21 @@ export default function Saff() {
                 </button>
               </form>
             )}
-            {sheet === "auth" && (
+            {sheet === "auth" && !codeSent && (
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   run(async () => {
-                    if (!supabase)
-                      throw new Error(
-                        "Sign-in is not available until Supabase is configured.",
-                      );
-                    const { error } = await supabase.auth.signInWithOtp({
-                      email,
-                      options: { emailRedirectTo: window.location.origin },
-                    });
-                    if (error) throw error;
-                    notify("Check your email for a sign-in link.");
+                    await sendCode();
+                    setCodeSent(true);
+                    notify("Check your email for your sign-in code.");
                   });
                 }}
               >
                 <p className="muted">
-                  One account for your prayers, your circles, and wherever life
-                  takes you.
+                  {invited
+                    ? "You’ve been invited to a circle. Sign in to join it."
+                    : "One account for your prayers, your circles, and wherever life takes you."}
                 </p>
                 <label>
                   Email address
@@ -1664,11 +1936,82 @@ export default function Saff() {
                   disabled={pending || !supabase}
                 >
                   <Mail size={17} />
-                  Send sign-in link
+                  Email me a sign-in code
                 </button>
                 <p className="fine-print">
-                  We’ll email you a secure link. No password to remember.
+                  We’ll email you a short code and a secure link. No password to
+                  remember. By continuing you agree to our{" "}
+                  <a href="/privacy" target="_blank" className="mint-text">
+                    privacy policy
+                  </a>
+                  .
                 </p>
+              </form>
+            )}
+            {sheet === "auth" && codeSent && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  run(async () => {
+                    const { error } = await supabase!.auth.verifyOtp({
+                      email,
+                      token: code.replace(/\s/g, ""),
+                      type: "email",
+                    });
+                    if (error)
+                      throw new Error(
+                        /expired|invalid/i.test(error.message)
+                          ? "That code is incorrect or has expired. Check the latest email or send a new code."
+                          : error.message,
+                      );
+                  });
+                }}
+              >
+                <p className="muted">
+                  Enter the code we sent to <strong>{email}</strong>, or open
+                  the link in that email on this device.
+                </p>
+                <label>
+                  Sign-in code
+                  <input
+                    autoFocus
+                    required
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    pattern="[0-9 ]{6,12}"
+                    maxLength={12}
+                    placeholder="123456"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                  />
+                </label>
+                <button className="primary full" disabled={pending}>
+                  Sign in <ArrowRight size={17} />
+                </button>
+                <button
+                  type="button"
+                  className="text-button full"
+                  disabled={pending}
+                  onClick={() =>
+                    run(async () => {
+                      await sendCode();
+                      setCode("");
+                      notify("A new code is on its way.");
+                    })
+                  }
+                >
+                  Send a new code
+                </button>
+                <button
+                  type="button"
+                  className="text-button full"
+                  onClick={() => {
+                    setCodeSent(false);
+                    setCode("");
+                  }}
+                >
+                  Use a different email
+                </button>
               </form>
             )}
           </Sheet>

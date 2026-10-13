@@ -77,12 +77,10 @@ export async function GET(request: Request) {
         .upsert(schedule, { onConflict: "user_id,date,prayer" });
       if (se) throw se;
       if (jobs.length) {
-        const { error: je } = await db
-          .from("notification_jobs")
-          .upsert(jobs, {
-            onConflict: "user_id,date,prayer,kind",
-            ignoreDuplicates: true,
-          });
+        const { error: je } = await db.from("notification_jobs").upsert(jobs, {
+          onConflict: "user_id,date,prayer,kind",
+          ignoreDuplicates: true,
+        });
         if (je) throw je;
       }
       scheduleCount += schedule.length;
@@ -106,6 +104,8 @@ export async function GET(request: Request) {
           .eq("user_id", job.user_id)
           .eq("date", job.date)
           .eq("prayer", job.prayer);
+        const prayerName = job.prayer[0].toUpperCase() + job.prayer.slice(1);
+        let sender = "";
         let allowed =
           job.kind === "scheduled"
             ? s.reminders && s.reminderPrayers.includes(job.prayer as Prayer)
@@ -124,6 +124,12 @@ export async function GET(request: Request) {
             !!mine?.some((m) =>
               theirs?.some((t) => m.circle_id === t.circle_id),
             );
+          const { data: from } = await db
+            .from("profiles")
+            .select("settings")
+            .eq("id", job.sender)
+            .maybeSingle();
+          sender = from?.settings?.name?.trim() || "";
         }
         if (
           count ||
@@ -151,8 +157,8 @@ export async function GET(request: Request) {
                 title: "A little moment for salah",
                 body:
                   job.kind === "nudge"
-                    ? "Someone in your circle is sending a gentle reminder."
-                    : `It’s time for ${job.prayer[0].toUpperCase() + job.prayer.slice(1)}. Take a moment for yourself.`,
+                    ? `${sender || "Someone in your circle"} is sending you a gentle reminder for ${prayerName}.`
+                    : `It’s time for ${prayerName}. Take a moment for yourself.`,
                 tag: `saff-${job.date}-${job.prayer}`,
               }),
               { TTL: 900 },
