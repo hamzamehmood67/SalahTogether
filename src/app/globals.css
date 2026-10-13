@@ -2628,3 +2628,38 @@ button.member-name {
   font-size: 10px;
   color: var(--muted);
 }
+.doc-page {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 40px 16px 80px;
+  font-size: 15px;
+  line-height: 1.75;
+}
+.doc-page h1 {
+  margin: 24px 0 6px;
+}
+.doc-page h2 {
+  margin: 36px 0 10px;
+}
+.doc-page p,
+.doc-page ul,
+.doc-page ol {
+  margin: 0 0 14px;
+}
+.doc-page ul,
+.doc-page ol {
+  padding-left: 22px;
+}
+.doc-page li {
+  margin-bottom: 8px;
+}
+.doc-page a {
+  color: var(--gold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.doc-page a.doc-back {
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+}

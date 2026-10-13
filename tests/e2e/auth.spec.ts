@@ -146,3 +146,22 @@ test("visitors sign in with the emailed code", async ({ page }) => {
     page.getByRole("dialog", { name: "Let’s set up your space" }),
   ).toBeVisible();
 });
+
+test("privacy and account deletion pages are public and fit a phone", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.goto("/privacy");
+  await expect(
+    page.getByRole("heading", { name: "Privacy policy", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "how account deletion works" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Delete your Saff account" }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+});
