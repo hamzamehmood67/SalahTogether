@@ -9,11 +9,11 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000. Visitors see the welcome screen and sign in with an email link. Supabase must be configured before sign-in is available. New accounts start with no prayer history, circles, or achievements. Old browser demo data is discarded, never uploaded. The design's colors, fonts, and animations remain unchanged.
+Open http://localhost:3000. Visitors see the welcome screen and sign in with a code (or link) sent by email, then set their name and prayer location. Supabase must be configured before sign-in is available. New accounts start with no prayer history, circles, or achievements. Old browser demo data is discarded, never uploaded. The design's colors, fonts, and animations remain unchanged.
 
 ## Connect your backend
 
-1. **Create a Supabase project.** In its SQL Editor, create a query, paste the complete contents of [`supabase/migrations/202609290001_saff.sql`](supabase/migrations/202609290001_saff.sql), and run it once on a fresh project. It creates the tables, signup trigger, permissions, RPCs, and prayer-record Realtime publication. It does not insert sample prayers or circles. If you already applied this migration, do not rerun the table-creation script.
+1. **Create a Supabase project.** In its SQL Editor, run each file in [`supabase/migrations`](supabase/migrations) once, in filename order, on a fresh project: first [`202609290001_saff.sql`](supabase/migrations/202609290001_saff.sql) (tables, signup trigger, permissions, RPCs, prayer-record Realtime publication), then [`202610130001_mvp.sql`](supabase/migrations/202610130001_mvp.sql) (first-run flag, account deletion, device hand-over for push). Neither inserts sample prayers or circles. On a project that already has the first file applied, run only the second. Never rerun a file that has already been applied.
 2. **Connect the app.** From the project's **Connect** dialog, copy the project URL and publishable key (`sb_publishable_...`; a legacy anon key also works). Create `.env.local` in this repository's root:
 
    ```dotenv
@@ -22,12 +22,54 @@ Open http://localhost:3000. Visitors see the welcome screen and sign in with an 
    ```
 
    The legacy variable `NEXT_PUBLIC_SUPABASE_ANON_KEY` remains supported. Use a publishable/anon key here, never a secret or service-role key. Core tracking does not require the service-role key.
+
 3. **Configure email sign-in.** Under Authentication, enable the Email provider and allow new users to sign up. In **URL Configuration**, set Site URL to `http://localhost:3000` for local development and add `http://localhost:3000` to Redirect URLs. If you browse through `http://127.0.0.1:3000`, add that exact origin too. For phone testing over your LAN, add the computer's LAN origin including the port and open the app at that address. For production, change Site URL to the deployed HTTPS origin and add that origin to Redirect URLs. Keep the default magic-link email template using `{{ .ConfirmationURL }}`.
-4. **Set up email delivery.** Supabase's default sender only delivers to project-team email addresses and has restrictive test limits. Configure custom SMTP under Authentication before inviting family/friends. This is required for external users, even during an MVP pilot. Use your SMTP provider's verified sender, host, port, username, and password. [Official SMTP guide](https://supabase.com/docs/guides/auth/auth-smtp) · [Email-link sign-in](https://supabase.com/docs/guides/auth/auth-email-passwordless) · [Redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls).
-5. **Restart and sign in.** Restart `npm run dev`, choose **Continue individually**, enter your email, and open the sign-in link. Your profile is created automatically as “Friend”; edit your name and prayer location in settings. Defaults are Lahore, Karachi calculation method, and Hanafi Asr. Record a prayer, reload, and confirm it remains. Then create a circle and use its invite code from a second signed-in account to verify sharing.
-6. **Deploy when ready.** Set the same public environment variables on your Node-capable host before building. Public variables are bundled at build time, so rebuild after changing them. For reminders, complete the optional setup below.
+4. **Add the sign-in code to the emails.** Under Authentication → Emails, edit both the **Magic Link** and **Confirm signup** templates (new accounts receive the second) so they include the code as well as the link, for example:
+
+   ```html
+   <h2>Your Saff sign-in code</h2>
+   <p>Enter this code in Saff: <strong>{{ .Token }}</strong></p>
+   <p>
+     Or open this link on the same device:
+     <a href="{{ .ConfirmationURL }}">Sign in to Saff</a>
+   </p>
+   ```
+
+   The app accepts the code in the sign-in sheet; the link still works. Codes from an installed phone app and from Android must be typed, because a link opens in the default browser.
+
+5. **Set up email delivery.** Supabase's default sender only delivers to project-team email addresses and has restrictive test limits. Configure custom SMTP under Authentication before inviting family/friends. This is required for external users, even during an MVP pilot. Use your SMTP provider's verified sender, host, port, username, and password. [Official SMTP guide](https://supabase.com/docs/guides/auth/auth-smtp) · [Email-link sign-in](https://supabase.com/docs/guides/auth/auth-email-passwordless) · [Redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls).
+6. **Restart and sign in.** Restart `npm run dev`, choose **Continue individually**, enter your email, and type the code from the email (or open its link). A first-run sheet asks for your name and location; the defaults are Lahore, Karachi calculation method, and Hanafi Asr. Record a prayer, reload, and confirm it remains. Then create a circle, open **Manage circles → Invite**, and open the invite link from a second account to verify sharing.
+7. **Deploy when ready.** Set the same public environment variables on your Node-capable host before building. Public variables are bundled at build time, so rebuild after changing them. For reminders, complete the optional setup below.
 
 There is no Supabase seed data to delete. The former sample history existed only in browser storage. If you manually created test users or records in a hosted project, review those separately before deleting anything.
+
+## Deploy to your own server
+
+Requirements: Node.js 20.9 or newer, a domain with HTTPS (push notifications and installation require it), and a reverse proxy such as nginx or Caddy in front of the app.
+
+1. Copy the repository to the server and create `.env.local` (or export the variables) with every value from `.env.example`. Set `NEXT_PUBLIC_CONTACT_EMAIL` to the address shown on `/privacy` and `/delete-account`.
+2. Build and start:
+
+   ```sh
+   npm ci
+   npm run build
+   PORT=3000 npm start
+   ```
+
+   Rebuild whenever a `NEXT_PUBLIC_*` value changes; they are inlined at build time. Keep the process running with systemd or pm2, and proxy your HTTPS domain to port 3000.
+
+3. In Supabase → Authentication → URL Configuration, set Site URL to the HTTPS origin and add it to Redirect URLs.
+4. Trigger reminders every minute. On your own server a crontab entry is simplest (Supabase Cron, below, also works):
+
+   ```sh
+   * * * * * curl -fsS -m 55 -H "Authorization: Bearer $CRON_SECRET" https://YOUR_DOMAIN/api/jobs/reminders > /dev/null
+   ```
+
+   Without this, reminders never send and every nudge fails with “Prayer times are being prepared”.
+
+5. Smoke test with two accounts: sign in by code, finish setup, record a prayer, share an invite link, join from the second account, enable notifications, and send a nudge.
+
+For the Play Store listing, use `https://YOUR_DOMAIN/privacy` as the privacy policy and `https://YOUR_DOMAIN/delete-account` as the account deletion URL.
 
 ## Push and background reminders
 
@@ -52,9 +94,9 @@ The worker calculates current/next-day times, creates unique delivery jobs, clai
 
 ## Data and visibility
 
-Authenticated RPCs are the shared interface for web and future Android: `get_dashboard`, `save_settings`, `set_prayer`, `create_circle`, `join_circle`, `leave_circle`, `set_circle_goal`, and `send_nudge`. Prayer writes are idempotent by user, local date, and prayer. PostgreSQL owns the data and permissions; the UI derives progress from those records. No client can award itself persisted achievements.
+Authenticated RPCs are the shared interface for web and future Android: `get_dashboard`, `save_settings`, `set_prayer`, `create_circle`, `join_circle`, `leave_circle`, `set_circle_goal`, `send_nudge`, `register_push_subscription`, and `delete_account`. Prayer writes are idempotent by user, local date, and prayer. PostgreSQL owns the data and permissions; the UI derives progress from those records. No client can award itself persisted achievements.
 
-Prayer history becomes visible to current circle members immediately upon joining, including prior history. Outside shared circles it stays private. Profiles, location, push subscriptions, and notification preferences are never generally readable. The circle view exposes only whether a gentle nudge is available. Leaving revokes access through that circle; other shared circles still grant access. If the owner leaves, ownership moves to the oldest remaining member and the invite code rotates; an empty circle is deleted.
+Prayer history becomes visible to current circle members immediately upon joining, including prior history. Outside shared circles it stays private. Profiles, location, push subscriptions, and notification preferences are never generally readable. The circle view exposes only whether a gentle nudge is available. Leaving revokes access through that circle; other shared circles still grant access. If the owner leaves, ownership moves to the oldest remaining member and the invite code rotates; an empty circle is deleted. Invite links (`/join/CODE`) carry the same code, so anyone holding one can join. Deleting an account leaves every circle under the same rules, then removes the profile, records, memberships, and device registrations. Signing out removes this device's push registration; a device left registered by another account is reassigned when the new account enables notifications.
 
 Progress is derived from current records, so correcting a prayer updates badges and streaks. Personal streaks use local calendar dates. A year badge means 365 consecutive dates with at least one record. An unfinished current day does not break yesterday’s streak. Group goal totals use the displayed calendar month. Streak badges remain earned when a later streak breaks, provided the qualifying history remains recorded. Circle Unity checks shared full dates across members; it is derived from history rather than a separate award ledger.
 
@@ -71,7 +113,7 @@ Playwright uses locally installed Google Chrome. Alternatively install Playwrigh
 
 ## MVP boundaries
 
-English UI with Arabic prayer labels; online authenticated writes; no demo workspace. No billing, chat, full offline synchronization, or native Android client. Installable manifest and a push service worker are included, without caching private API data. Backend credentials and a deployed scheduler are required for actual authentication, shared multi-user data, and delivered notifications. Nothing is deployed by the repository itself.
+English UI with Arabic prayer labels; online authenticated writes; no demo workspace. Public `/privacy` and `/delete-account` pages are included. No billing, chat, full offline synchronization, or native Android client. Installable manifest and a push service worker are included, without caching private API data. Backend credentials and a deployed scheduler are required for actual authentication, shared multi-user data, and delivered notifications. Nothing is deployed by the repository itself.
 
 ## Original design fidelity
 

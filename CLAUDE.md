@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Saff ("Saff — Salah Circles"; the repo directory is `SalahTogether`, the package and app are `saff`) is a mobile-first prayer tracker with shared family/friend circles. It is a **working prototype** that is being taken to MVP. Many features still need to be added, and existing behavior is expected to change. Treat the current code as a starting point, not a spec.
 
-`README.md` documents the prototype's setup and intended semantics in detail: Supabase setup, visibility rules, streak and badge rules, reminders, and design fidelity. Read the relevant section before changing any of those. If a requested change conflicts with a prototype rule described here or in the README (strict fidelity to the reference design, for example, or the single-migration setup), point out the conflict and confirm before you either keep or break the rule.
+`README.md` documents the prototype's setup and intended semantics in detail: Supabase setup, visibility rules, streak and badge rules, reminders, and design fidelity. Read the relevant section before changing any of those. If a requested change conflicts with a prototype rule described here or in the README (strict fidelity to the reference design, for example, or the paste-each-migration-once setup), point out the conflict and confirm before you either keep or break the rule.
 
 Known prototype limits, taken from the README and the code:
 
@@ -37,14 +37,15 @@ npx prettier --write <files>
 
 ## Architecture
 
-It is a single-page app on Next.js 16 App Router: `src/app/page.tsx` renders `<Saff />`. The stack is React 19, Supabase (Postgres, Auth with email magic links, Realtime), `adhan` for prayer times, `motion` for animation, and Web Push for reminders.
+It is a single-page app on Next.js 16 App Router: `src/app/page.tsx` renders `<Saff />`. The stack is React 19, Supabase (Postgres, Auth with emailed one-time codes and magic links, Realtime), `adhan` for prayer times, `motion` for animation, and Web Push for reminders.
 
 ### Client layers
 
 - **`src/lib/domain.ts`** holds pure logic shared by the browser and the server reminder worker: types (`Settings`, `RecordItem`, `Member`, `Circle`), `DEFAULT_SETTINGS`, `CITIES`, date keys, streaks, `prayerTimes`, and `badges`. Dates are `YYYY-MM-DD` strings in the user's own timezone (`dateKey`, `shiftDate`). Streaks, badges, and goal progress are **computed on the client from raw prayer records**. No award is ever stored.
-- **`src/lib/use-saff.ts`** is the only client data layer. It handles auth state and loads everything through the `get_dashboard` RPC. Each mutation (`toggle`, `saveSettings`, `createCircle`, `joinCircle`, `leaveCircle`, `nudge`, `setGoal`) calls one RPC and then reloads. `toggle` updates optimistically and rolls back on error. The `identity` ref throws away responses that arrive after an account switch. RPCs run in a `setTimeout` outside the `onAuthStateChange` callback, to stay clear of Supabase's auth lock.
+- **`src/lib/use-saff.ts`** is the only client data layer. It handles auth state and loads everything through the `get_dashboard` RPC. Each mutation (`toggle`, `saveSettings`, `createCircle`, `joinCircle`, `leaveCircle`, `nudge`, `setGoal`, `deleteAccount`) calls one RPC and then reloads. `signOut` and `deleteAccount` first detach this device's push subscription (`src/lib/push.ts`). `toggle` updates optimistically and rolls back on error. The `identity` ref throws away responses that arrive after an account switch. RPCs run in a `setTimeout` outside the `onAuthStateChange` callback, to stay clear of Supabase's auth lock.
 - **`src/lib/supabase.ts`** exports the browser client, or `null` when the env vars are missing.
-- **`src/components/saff.tsx`** (~1700 lines) is the whole UI controller. It owns tab state, every sheet (auth, settings, location, create/join/invite circle, goal, member detail), toasts, the desktop sidebar shell, push subscription, and the `referenceValues` object that feeds the reference screens.
+- **`src/components/saff.tsx`** (~1700 lines) is the whole UI controller. It owns tab state, every sheet (auth with emailed code, first-run onboarding, settings, location, create/join/invite circle, goal, member detail, delete account), toasts, the desktop sidebar shell, the pending invite code (`?join=` → localStorage `saff-join`), and the `referenceValues` object that feeds the reference screens. On phones, Settings is reachable only through the Today location chip → gear button.
+- **Other routes**: `/join/[code]` redirects to `/?join=CODE`; `/privacy` and `/delete-account` are static pages (store-listing URLs) that show `NEXT_PUBLIC_CONTACT_EMAIL` when set.
 
 ### Reference screens are generated code
 
@@ -59,9 +60,9 @@ The five mobile screens in `src/components/reference/` (`welcome`, `today`, `cir
 
 ### Backend (Supabase)
 
-- **All schema, RLS, and RPCs live in one file**, `supabase/migrations/202609290001_saff.sql`. The repo has no Supabase CLI config; the README says to paste the file into the SQL Editor once on a fresh project. Put schema changes in a **new** timestamped migration file, and also update `tests/database.test.ts`, which loads that single file by name.
-- **Security model.** `authenticated` has `SELECT` only on `prayer_records`, with RLS allowing its own rows or `public.shares_circle(user_id)`. Its only direct write is to its own `push_subscriptions` rows, which `saff.tsx` upserts. All other access goes through `security definer` RPCs that use `set search_path=''`, so names inside function bodies must be fully qualified (`public.…`). The migration runs `revoke execute on all functions` and then grants a fixed list. **A new RPC needs its own `grant execute … to authenticated`.**
-- **Settings shape.** Profile settings are a single `jsonb` value whose shape is defined in four places that must stay in sync: `Settings`/`DEFAULT_SETTINGS` in `domain.ts`, the `profiles.settings` column default in the migration, the validation in `save_settings` (including the allowlists for `method` and for `offset` ∈ {0, 5, 15, 30}), and the e2e fixture state.
+- **Schema, RLS, and RPCs live in `supabase/migrations/`**: `202609290001_saff.sql` (base) and `202610130001_mvp.sql` (onboarding flag, `delete_account`, `register_push_subscription`). The repo has no Supabase CLI config; the README says to paste each file into the SQL Editor once, in filename order. Put schema changes in a **new** timestamped migration file and never edit an applied one. `tests/database.test.ts` applies every file in the folder in sorted order.
+- **Security model.** `authenticated` has `SELECT` only on `prayer_records`, with RLS allowing its own rows or `public.shares_circle(user_id)`. Its only direct table access besides that is its own `push_subscriptions` rows (read and delete from `src/lib/push.ts`); registering a device goes through `register_push_subscription`, which reassigns an endpoint left by another account. All other access goes through `security definer` RPCs that use `set search_path=''`, so names inside function bodies must be fully qualified (`public.…`). The migration runs `revoke execute on all functions` and then grants a fixed list. **A new RPC needs its own `revoke execute … from public, anon, authenticated` and `grant execute … to authenticated`**: hosted Supabase's default privileges grant new functions to `anon`.
+- **Settings shape.** Profile settings are a single `jsonb` value whose shape is defined in four places that must stay in sync: `Settings`/`DEFAULT_SETTINGS` in `domain.ts`, the `profiles.settings` column default (last set in `202610130001_mvp.sql`), the validation in `save_settings`, last replaced in the same file (including the allowlists for `method` and for `offset` ∈ {0, 5, 15, 30} and the optional boolean `onboarded`), and the e2e fixture state.
 - **Visibility rules.** Joining a circle shares your past history too. Leaving revokes access unless another circle is shared. When the owner leaves, ownership passes to the oldest member and the invite code rotates. The README's "Data and visibility" section describes these rules and `tests/database.test.ts` covers them.
 - **PGlite compatibility.** The DB tests run the migration under PGlite with stubs for `auth.users`, `auth.uid()` (read from `request.jwt.claim.sub`), the `anon`/`authenticated`/`service_role` roles, and the `supabase_realtime` publication. Keep migrations PGlite-compatible, with nothing that depends on pg_cron, pg_net, or Vault. The cron setup lives in the README for this reason.
 
@@ -81,7 +82,7 @@ The five mobile screens in `src/components/reference/` (`welcome`, `today`, `cir
 
 ### E2E fixture
 
-`tests/e2e/supabase-fixture.ts` intercepts every request to `https://saff-test.supabase.co/**`, puts a fake session in localStorage, and stubs the Realtime websocket. It keeps an in-memory copy of the RPC contract for `get_dashboard`, `set_prayer`, `save_settings`, `create_circle`, and `set_circle_goal`. **Any other request throws `Unexpected Supabase request`**, so add new RPCs to the fixture, and update it whenever the shape of `get_dashboard` changes.
+`tests/e2e/supabase-fixture.ts` intercepts every request to `https://saff-test.supabase.co/**`, puts a fake session in localStorage, and stubs the Realtime websocket. It keeps an in-memory copy of the RPC contract for `get_dashboard`, `set_prayer`, `save_settings`, `create_circle`, `join_circle` (only code `FRIENDS1` succeeds), `set_circle_goal`, and `delete_account`, and answers `/auth/v1/verify` with a session for code `123456`. Populated fixtures are already onboarded; `populated: false` starts at the first-run sheet. **Any other request throws `Unexpected Supabase request`**, so add new RPCs to the fixture, and update it whenever the shape of `get_dashboard` changes.
 
 ## Environment
 
