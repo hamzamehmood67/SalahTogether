@@ -1002,15 +1002,7 @@ export default function Saff() {
             >
               Try again
             </button>
-            <button
-              className="secondary"
-              onClick={() =>
-                run(async () => {
-                  const result = await supabase!.auth.signOut();
-                  if (result.error) throw result.error;
-                })
-              }
-            >
+            <button className="secondary" onClick={() => run(app.signOut)}>
               Sign out
             </button>
           </>
@@ -1498,7 +1490,7 @@ export default function Saff() {
                     className="text-button danger"
                     onClick={() =>
                       run(async () => {
-                        await supabase!.auth.signOut();
+                        await app.signOut();
                         setSheet(null);
                       })
                     }

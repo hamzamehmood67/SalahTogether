@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "./supabase";
+import { detachDevice } from "./push";
 import {
   DEFAULT_SETTINGS,
   Settings,
@@ -210,6 +211,13 @@ export function useSaff() {
     });
     if (error) throw error;
   }
+  async function signOut() {
+    if (!supabase) return;
+    // Stop this device receiving the departing account's reminders.
+    await detachDevice(supabase);
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+  }
   async function setGoal(circle: string, goal: number) {
     const { client, id } = account();
     const { error } = await client.rpc("set_circle_goal", {
@@ -239,5 +247,6 @@ export function useSaff() {
     leaveCircle,
     nudge,
     setGoal,
+    signOut,
   };
 }
