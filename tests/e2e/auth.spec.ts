@@ -105,3 +105,17 @@ test("database failure cannot open a fabricated dashboard and can be retried", a
     }),
   ).toBeVisible();
 });
+
+test("signed-out visitors keep an invite through sign-in", async ({ page }) => {
+  await mockSupabase(page, { signedIn: false });
+  await page.goto("/join/abc123");
+  await expect(
+    page.getByRole("dialog", { name: "Welcome to Saff" }),
+  ).toBeVisible();
+  await expect(page).toHaveURL("http://127.0.0.1:3100/");
+  expect(await page.evaluate(() => localStorage.getItem("saff-join"))).toBe(
+    "ABC123",
+  );
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});

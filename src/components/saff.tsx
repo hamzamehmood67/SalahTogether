@@ -427,15 +427,32 @@ export default function Saff() {
         .then(setDevicePush)
         .catch(() => setDevicePush("off"));
   }
+  const inviteLink =
+    circle?.code && typeof window !== "undefined"
+      ? window.location.origin + "/join/" + circle.code
+      : "";
+  async function shareInvite() {
+    if (!circle?.code) return false;
+    if (!navigator.share) return false;
+    try {
+      await navigator.share({
+        title: "Join " + circle.name + " on Saff",
+        text: `Join our prayer circle “${circle.name}” on Saff. Invite code: ${circle.code}`,
+        url: inviteLink,
+      });
+    } catch (e) {
+      // Dismissing the share sheet is not an error.
+      if ((e as Error).name !== "AbortError") throw e;
+    }
+    return true;
+  }
   async function invite() {
-    if (circle?.code) {
-      try {
-        await navigator.clipboard.writeText(circle.code);
-        notify("Invite code copied. Share it with someone you love.");
-      } catch {
-        open("invite");
-      }
-    } else open("invite");
+    try {
+      if (await shareInvite()) return;
+    } catch {
+      /* Fall back to the invite sheet below. */
+    }
+    open("invite");
   }
   const selectedMonth = month || today.slice(0, 7);
   const [yearNum, monthNum] = selectedMonth.split("-").map(Number);
@@ -1253,12 +1270,21 @@ export default function Saff() {
                   Join a circle
                 </button>
                 {circle?.owner === userId && (
-                  <button
-                    className="text-button full"
-                    onClick={() => open("goal")}
-                  >
-                    Edit monthly circle goal
-                  </button>
+                  <>
+                    <button
+                      className="text-button full"
+                      onClick={() => open("invite")}
+                    >
+                      <Share2 size={16} />
+                      Invite to {circle.name}
+                    </button>
+                    <button
+                      className="text-button full"
+                      onClick={() => open("goal")}
+                    >
+                      Edit monthly circle goal
+                    </button>
+                  </>
                 )}
                 {circle && (
                   <button
@@ -1737,18 +1763,36 @@ export default function Saff() {
                   {circle?.code || "Ask the circle owner for an invite code"}
                 </div>
                 {circle?.code && (
-                  <button
-                    className="primary full"
-                    onClick={() =>
-                      run(async () => {
-                        await navigator.clipboard.writeText(circle.code!);
-                        notify("Invite code copied.");
-                      })
-                    }
-                  >
-                    <Copy size={17} />
-                    Copy invite code
-                  </button>
+                  <>
+                    <p className="invite-link" aria-label="Invite link">
+                      {inviteLink}
+                    </p>
+                    <button
+                      className="primary full"
+                      onClick={() =>
+                        run(async () => {
+                          if (await shareInvite()) return;
+                          await navigator.clipboard.writeText(inviteLink);
+                          notify("Invite link copied. Send it to your people.");
+                        })
+                      }
+                    >
+                      <Share2 size={17} />
+                      Share invite link
+                    </button>
+                    <button
+                      className="text-button full"
+                      onClick={() =>
+                        run(async () => {
+                          await navigator.clipboard.writeText(circle.code!);
+                          notify("Invite code copied.");
+                        })
+                      }
+                    >
+                      <Copy size={16} />
+                      Copy code only
+                    </button>
+                  </>
                 )}
               </>
             )}

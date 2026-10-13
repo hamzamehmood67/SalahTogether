@@ -141,6 +141,24 @@ export async function mockSupabase(
         code: "NEWCODE1",
         members: [{ id, name: state.settings.name, records: state.records }],
       });
+    } else if (method === "join_circle") {
+      if (payload.p_code !== "FRIENDS1") {
+        await route.fulfill({
+          status: 400,
+          json: { message: "That invite code was not found" },
+        });
+        return;
+      }
+      state.circles.push({
+        id: "friends",
+        name: "Friends of the Masjid",
+        owner: "member2",
+        goal: 750,
+        members: [
+          { id: "member2", name: "Bilal", records: [], nudges: false },
+          { id, name: state.settings.name, records: state.records },
+        ],
+      });
     } else if (method === "set_circle_goal") {
       state.circles.find((c) => c.id === payload.p_circle)!.goal =
         payload.p_goal;

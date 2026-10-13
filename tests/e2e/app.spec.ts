@@ -99,3 +99,29 @@ test("all views fit phone widths and desktop", async ({ page }) => {
     }
   }
 });
+
+test("invite links open a prefilled join sheet and owners can share one", async ({
+  page,
+}) => {
+  await page
+    .getByRole("navigation", { name: "Mobile navigation" })
+    .getByRole("button", { name: "Circles" })
+    .click();
+  await page.getByRole("button", { name: "Manage circles" }).click();
+  await page
+    .getByRole("button", { name: "Invite to The Rahman Family" })
+    .click();
+  await expect(page.getByLabel("Invite link")).toHaveText(
+    "http://127.0.0.1:3100/join/SAFF26",
+  );
+  await page.goto("/join/friends1");
+  await expect(page).toHaveURL("http://127.0.0.1:3100/");
+  const join = page.getByRole("dialog", { name: "Join your people" });
+  await expect(join.getByLabel("Invite code")).toHaveValue("FRIENDS1");
+  await expect(join.getByText(/existing prayer history/)).toBeVisible();
+  await join.getByRole("button", { name: "Join circle" }).click();
+  await expect(page.getByRole("status")).toContainText("Welcome");
+  expect(
+    await page.evaluate(() => localStorage.getItem("saff-join")),
+  ).toBeNull();
+});
