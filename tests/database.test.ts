@@ -247,3 +247,68 @@ it("deletes an account and its data while handing shared circles on", async () =
     .rows[0].d;
   expect(d.circles[0].members.map((m: any) => m.id)).toEqual([staying]);
 });
+
+it("lets only the circle admin decide who can share the invite code", async () => {
+  const admin = "77777777-7777-4777-8777-777777777777",
+    member = "88888888-8888-4888-8888-888888888888",
+    friend = "99999999-9999-4999-8999-999999999999";
+  await db.exec(
+    `reset role;insert into auth.users(id) values('${admin}'),('${member}'),('${friend}');`,
+  );
+  const myCircle = async () =>
+    (await db.query<{ d: any }>("select public.get_dashboard() d")).rows[0].d
+      .circles[0];
+  await asUser(admin);
+  const id = (
+    await db.query<{ id: string }>("select public.create_circle('Cousins') id")
+  ).rows[0].id;
+  const first = await myCircle();
+  expect(first.membersCanInvite).toBe(false);
+  await asUser(member);
+  await db.query("select public.join_circle($1)", [first.code]);
+  expect((await myCircle()).code).toBeNull();
+  await expect(
+    db.query("select public.set_circle_invites($1,true)", [id]),
+  ).rejects.toThrow(/admin/);
+  await expect(
+    db.query("select public.reset_circle_code($1)", [id]),
+  ).rejects.toThrow(/admin/);
+  // Allowing members shows them the current code; allowing twice keeps it.
+  await asUser(admin);
+  await db.query("select public.set_circle_invites($1,true)", [id]);
+  await db.query("select public.set_circle_invites($1,true)", [id]);
+  await asUser(member);
+  const shared = await myCircle();
+  expect(shared.membersCanInvite).toBe(true);
+  expect(shared.code).toBe(first.code);
+  // Stopping member invites rotates the code, so links members passed on stop working.
+  await asUser(admin);
+  await db.query("select public.set_circle_invites($1,false)", [id]);
+  const rotated = await myCircle();
+  expect(rotated.code).not.toBe(first.code);
+  await asUser(member);
+  expect((await myCircle()).code).toBeNull();
+  await asUser(friend);
+  await expect(
+    db.query("select public.join_circle($1)", [first.code]),
+  ).rejects.toThrow(/not found/);
+  await asUser(admin);
+  const fresh = (
+    await db.query<{ code: string }>(
+      "select public.reset_circle_code($1) code",
+      [id],
+    )
+  ).rows[0].code;
+  expect(fresh).toMatch(/^[0-9A-F]{8}$/);
+  expect(fresh).not.toBe(rotated.code);
+  await asUser(friend);
+  await db.query("select public.join_circle($1)", [fresh]);
+  expect((await myCircle()).members).toHaveLength(3);
+  await db.exec("reset role;set role anon;");
+  await expect(
+    db.query("select public.set_circle_invites($1,true)", [id]),
+  ).rejects.toThrow(/permission/);
+  await expect(
+    db.query("select public.reset_circle_code($1)", [id]),
+  ).rejects.toThrow(/permission/);
+});
