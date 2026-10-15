@@ -32,9 +32,11 @@ export interface Member {
 export interface Circle {
   id: string;
   name: string;
+  // Members see the code only while the owner (shown as admin) allows member invites.
   code?: string;
   owner: string;
   goal: number;
+  membersCanInvite?: boolean;
   members: Member[];
 }
 export const DEFAULT_SETTINGS: Settings = {
