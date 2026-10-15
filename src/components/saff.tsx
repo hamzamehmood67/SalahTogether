@@ -243,7 +243,9 @@ export default function Saff() {
     [invited, setInvited] = useState(""),
     [skippedSetup, setSkippedSetup] = useState(false),
     [codeSent, setCodeSent] = useState(false),
-    [code, setCode] = useState("");
+    [code, setCode] = useState(""),
+    // Which welcome button was tapped before sign-in: carried through setup.
+    [intent, setIntent] = useState<"create" | "join" | null>(null);
   const invitePrompted = useRef(false);
   useEffect(() => {
     setSheet(null);
@@ -301,6 +303,22 @@ export default function Saff() {
     welcome,
     settings.onboarded,
     skippedSetup,
+  ]);
+  useEffect(() => {
+    if (!ready || !intent || sheet || !userId || welcome) return;
+    if (!settings.onboarded && !skippedSetup) return;
+    setIntent(null);
+    // A pending invite link already opens the join sheet with its code.
+    if (!invited) open(intent);
+  }, [
+    ready,
+    intent,
+    sheet,
+    userId,
+    welcome,
+    settings.onboarded,
+    skippedSetup,
+    invited,
   ]);
   const today = dateKey(now, settings.timezone);
   const times = useMemo(() => prayerTimes(settings, today), [settings, today]);
@@ -598,16 +616,14 @@ export default function Saff() {
     goInsights: () => navigate("insights"),
     goMilestones: () => navigate("milestones"),
     startCircle: () => {
-      if (!userId) open("auth");
-      else {
-        open("create");
-      }
+      if (userId) return open("create");
+      setIntent("create");
+      open("auth");
     },
     joinCircle: () => {
-      if (!userId) open("auth");
-      else {
-        open("join");
-      }
+      if (userId) return open("join");
+      setIntent("join");
+      open("auth");
     },
     orbs: PRAYERS.map((p, i) => ({
       x: [35, 87, 167, 247, 299][i],
@@ -1218,7 +1234,13 @@ export default function Saff() {
           <MilestonesReference v={referenceValues} />
         )}
         {welcome && (
-          <button className="reference-solo" onClick={() => open("auth")}>
+          <button
+            className="reference-solo"
+            onClick={() => {
+              setIntent(null);
+              open("auth");
+            }}
+          >
             Continue individually <ArrowRight size={14} />
           </button>
         )}
