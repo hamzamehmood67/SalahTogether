@@ -235,6 +235,23 @@ export function useSaff() {
     if (error) throw error;
     await load(id);
   }
+  async function setMemberInvites(circle: string, allowed: boolean) {
+    const { client, id } = account();
+    const { error } = await client.rpc("set_circle_invites", {
+      p_circle: circle,
+      p_allowed: allowed,
+    });
+    if (error) throw error;
+    await load(id);
+  }
+  async function resetInviteCode(circle: string) {
+    const { client, id } = account();
+    const { error } = await client.rpc("reset_circle_code", {
+      p_circle: circle,
+    });
+    if (error) throw error;
+    await load(id);
+  }
   return {
     settings,
     records,
@@ -255,6 +272,8 @@ export function useSaff() {
     leaveCircle,
     nudge,
     setGoal,
+    setMemberInvites,
+    resetInviteCode,
     signOut,
     deleteAccount,
   };

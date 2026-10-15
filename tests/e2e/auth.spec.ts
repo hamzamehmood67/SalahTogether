@@ -147,6 +147,24 @@ test("visitors sign in with the emailed code", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("start a circle carries through sign-in and first-run setup", async ({
+  page,
+}) => {
+  await mockSupabase(page, { signedIn: false, populated: false });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Start a circle" }).click();
+  await page.getByLabel("Email address").fill("amina@example.com");
+  await page.getByRole("button", { name: "Email me a sign-in code" }).click();
+  await page.getByLabel("Sign-in code").fill("123456");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  const setup = page.getByRole("dialog", { name: "Let’s set up your space" });
+  await setup.getByLabel("Your name").fill("Amina");
+  await setup.getByRole("button", { name: "Start my journey" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Start a circle" }),
+  ).toBeVisible();
+});
+
 test("privacy and account deletion pages are public and fit a phone", async ({
   page,
 }) => {
