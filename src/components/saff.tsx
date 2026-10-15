@@ -38,12 +38,14 @@ import {
   NAMES,
   ARABIC,
   Settings,
+  Gender,
   DEFAULT_SETTINGS,
   CITIES,
   RecordItem,
   Prayer,
   dateKey,
   shiftDate,
+  weekStart,
   countDay,
   streak,
   bestStreak,
@@ -207,21 +209,57 @@ function forgetInvite() {
     /* Nothing to forget. */
   }
 }
-// The first-landing notification prompt is offered once per account on each device.
+// First-landing offers are made once per account on each device.
 const NOTIFY_ASKED_KEY = "saff-notify-asked:";
-function notifyAsked(user: string) {
+const CHARACTER_ASKED_KEY = "saff-character-asked:";
+function wasAsked(key: string, user: string) {
   try {
-    return !!localStorage.getItem(NOTIFY_ASKED_KEY + user);
+    return !!localStorage.getItem(key + user);
   } catch {
     return true; // Without storage it could not be remembered, so never nag.
   }
 }
-function rememberNotifyAsked(user: string) {
+function rememberAsked(key: string, user: string) {
   try {
-    localStorage.setItem(NOTIFY_ASKED_KEY + user, "1");
+    localStorage.setItem(key + user, "1");
   } catch {
     /* Nothing to remember it in. */
   }
+}
+// Each person's character; a sleepy crescent stands in until they choose.
+function characterArt(gender?: Gender | null) {
+  return "/avatars/" + (gender || "neutral") + ".svg";
+}
+// The reference screens' avatar circles take the character over the member's color.
+function characterBackground(gender: Gender | null | undefined, color: string) {
+  return "url(" + characterArt(gender) + ") center / cover no-repeat, " + color;
+}
+function CharacterChoice({
+  value,
+  choose,
+  disabled,
+}: {
+  value?: Gender | null;
+  choose: (gender: Gender) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="character-choice" role="radiogroup" aria-label="You are">
+      {(["male", "female"] as const).map((gender) => (
+        <button
+          key={gender}
+          type="button"
+          role="radio"
+          aria-checked={value === gender}
+          disabled={disabled}
+          onClick={() => choose(gender)}
+        >
+          <img src={characterArt(gender)} alt="" />
+          {gender === "male" ? "Male" : "Female"}
+        </button>
+      ))}
+    </div>
+  );
 }
 export default function Saff() {
   const app = useSaff();
@@ -241,6 +279,7 @@ export default function Saff() {
       | "onboarding"
       | "delete"
       | "notify"
+      | "character"
     >(null),
     [now, setNow] = useState(new Date()),
     [toast, setToast] = useState(""),
@@ -250,6 +289,8 @@ export default function Saff() {
     [pending, setPending] = useState(false),
     [circleId, setCircleId] = useState(""),
     [badgeId, setBadgeId] = useState("year"),
+    [period, setPeriod] = useState<"week" | "month">("week"),
+    [week, setWeek] = useState(""),
     [month, setMonth] = useState(""),
     [selectedDay, setSelectedDay] = useState(""),
     [memberId, setMemberId] = useState(""),
@@ -272,6 +313,10 @@ export default function Saff() {
     // First landing: check whether to offer notifications before other prompts.
     [notifyStep, setNotifyStep] = useState<"checking" | "offer" | "done">(
       "checking",
+    ),
+    // Then, once, accounts that have not chosen a character are asked to.
+    [characterStep, setCharacterStep] = useState<"checking" | "offer" | "done">(
+      "checking",
     );
   const invitePrompted = useRef(false);
   useEffect(() => {
@@ -279,6 +324,7 @@ export default function Saff() {
     setNudged({});
     setCircleId("");
     setNotifyStep("checking");
+    setCharacterStep("checking");
   }, [userId]);
   useEffect(() => {
     if (notifyStep !== "checking" || !ready || !userId || welcome) return;
@@ -287,7 +333,7 @@ export default function Saff() {
     if (
       !supabase ||
       !process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
-      notifyAsked(userId)
+      wasAsked(NOTIFY_ASKED_KEY, userId)
     ) {
       setNotifyStep("done");
       return;
@@ -306,6 +352,21 @@ export default function Saff() {
   useEffect(() => {
     if (notifyStep === "offer" && !sheet) setSheet("notify");
   }, [notifyStep, sheet]);
+  useEffect(() => {
+    if (characterStep !== "checking" || notifyStep !== "done" || !userId)
+      return;
+    // New accounts choose during setup, so only finished setups are asked.
+    setCharacterStep(
+      settings.onboarded &&
+        !settings.gender &&
+        !wasAsked(CHARACTER_ASKED_KEY, userId)
+        ? "offer"
+        : "done",
+    );
+  }, [characterStep, notifyStep, userId, settings.onboarded, settings.gender]);
+  useEffect(() => {
+    if (characterStep === "offer" && !sheet) setSheet("character");
+  }, [characterStep, sheet]);
   useEffect(() => {
     if (!welcome) setSheet((current) => (current === "auth" ? null : current));
   }, [welcome]);
@@ -345,7 +406,7 @@ export default function Saff() {
       return;
     }
     if (welcome || (!settings.onboarded && !skippedSetup)) return;
-    if (notifyStep !== "done") return;
+    if (characterStep !== "done") return;
     forgetInvite();
     setInvited("");
     setFormValue(invited);
@@ -358,12 +419,12 @@ export default function Saff() {
     welcome,
     settings.onboarded,
     skippedSetup,
-    notifyStep,
+    characterStep,
   ]);
   useEffect(() => {
     if (!ready || !intent || sheet || !userId || welcome) return;
     if (!settings.onboarded && !skippedSetup) return;
-    if (notifyStep !== "done") return;
+    if (characterStep !== "done") return;
     setIntent(null);
     // A pending invite link already opens the join sheet with its code.
     if (!invited) open(intent);
@@ -376,7 +437,7 @@ export default function Saff() {
     settings.onboarded,
     skippedSetup,
     invited,
-    notifyStep,
+    characterStep,
   ]);
   const today = dateKey(now, settings.timezone);
   const times = useMemo(() => prayerTimes(settings, today), [settings, today]);
@@ -508,8 +569,13 @@ export default function Saff() {
     });
     if (error) throw error;
   }
+  function finishCharacter() {
+    if (userId) rememberAsked(CHARACTER_ASKED_KEY, userId);
+    setCharacterStep("done");
+    setSheet(null);
+  }
   function finishNotify() {
-    if (userId) rememberNotifyAsked(userId);
+    if (userId) rememberAsked(NOTIFY_ASKED_KEY, userId);
     setNotifyStep("done");
     setSheet(null);
   }
@@ -568,28 +634,61 @@ export default function Saff() {
     }
     open("invite");
   }
+  // Insights shows one week (Monday to Sunday) or one month at a time.
   const selectedMonth = month || today.slice(0, 7);
   const [yearNum, monthNum] = selectedMonth.split("-").map(Number);
   const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
-  const monthRecords = records.filter((r) => r.date.startsWith(selectedMonth));
-  const pickedDay = selectedDay.startsWith(selectedMonth)
+  const thisWeek = weekStart(today);
+  const selectedWeek = week || thisWeek;
+  const periodDays =
+    period === "week"
+      ? Array.from({ length: 7 }, (_, i) => shiftDate(selectedWeek, i))
+      : Array.from(
+          { length: daysInMonth },
+          (_, i) => selectedMonth + "-" + String(i + 1).padStart(2, "0"),
+        );
+  const inPeriod = new Set(periodDays);
+  const periodRecords = records.filter((r) => inPeriod.has(r.date));
+  const pickedDay = inPeriod.has(selectedDay)
     ? selectedDay
-    : selectedMonth === today.slice(0, 7)
+    : inPeriod.has(today)
       ? today
-      : selectedMonth + "-01";
-  const monthLabel = new Date(yearNum, monthNum - 1, 1).toLocaleDateString(
-    "en-US",
-    { month: "long", year: "numeric" },
-  );
-  const closedDays = Array.from(
-    { length: daysInMonth },
-    (_, i) => selectedMonth + "-" + String(i + 1).padStart(2, "0"),
-  ).filter((d) => d < today);
+      : periodDays[0];
+  const periodLabel =
+    period === "week"
+      ? new Intl.DateTimeFormat("en-GB", {
+          day: "numeric",
+          month: "short",
+          year:
+            selectedWeek.slice(0, 4) === today.slice(0, 4)
+              ? undefined
+              : "numeric",
+          timeZone: "UTC",
+        }).formatRange(
+          new Date(selectedWeek + "T12:00:00Z"),
+          new Date(shiftDate(selectedWeek, 6) + "T12:00:00Z"),
+        )
+      : new Date(yearNum, monthNum - 1, 1).toLocaleDateString("en-US", {
+          month: "long",
+          year: "numeric",
+        });
+  const closedDays = periodDays.filter((d) => d < today);
   const fullDays = closedDays.filter((d) => countDay(records, d) === 5).length;
   function changeMonth(n: number) {
     const d = new Date(yearNum, monthNum - 1 + n, 1);
     setMonth(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"));
     setSelectedDay("");
+  }
+  function changeWeek(n: number) {
+    setWeek(shiftDate(selectedWeek, n * 7));
+    setSelectedDay("");
+  }
+  // Switching between week and month keeps the picked day in view.
+  function showPeriod(next: "week" | "month") {
+    setPeriod(next);
+    setWeek(weekStart(pickedDay));
+    setMonth(pickedDay.slice(0, 7));
+    setSelectedDay(pickedDay);
   }
   const circleMonthTotal =
     circle?.members.reduce(
@@ -687,6 +786,7 @@ export default function Saff() {
     firstYearMonth.getFullYear() +
     "-" +
     String(firstYearMonth.getMonth() + 1).padStart(2, "0");
+  const firstWeek = weekStart(firstYearKey + "-01");
   const referenceValues: ReferenceValues = {
     name: settings.name,
     toast: sheet ? null : toast,
@@ -867,8 +967,8 @@ export default function Saff() {
       : "A little encouragement, together",
     avatars: (circle?.members.slice(0, 4) || [])
       .map((m, i) => ({
-        initials: m.name.slice(0, m.name === settings.name ? 1 : 2),
-        bg: avatarColors[i][0],
+        initials: "",
+        bg: characterBackground(m.gender, avatarColors[i][0]),
         fg: avatarColors[i][1],
         z: 4 - i,
         margin: i ? -8 : 0,
@@ -938,8 +1038,8 @@ export default function Saff() {
         );
       return {
         name: m.name,
-        init: m.name.slice(0, m.id === userId ? 1 : 2),
-        bg: avatarColors[i % 6][0],
+        init: "",
+        bg: characterBackground(m.gender, avatarColors[i % 6][0]),
         fg: avatarColors[i % 6][1],
         isYou: m.id === userId,
         streak: streak(m.records, day),
@@ -1010,37 +1110,59 @@ export default function Saff() {
       " days logged · " +
       records.length.toLocaleString() +
       " prayers",
-    monthName: monthLabel,
-    monthNote:
-      selectedMonth === today.slice(0, 7)
-        ? "This month · so far"
-        : "Tap any bar for that day",
-    prev: () => changeMonth(-1),
-    next: () => changeMonth(1),
-    atStart: selectedMonth <= firstYearKey,
-    atEnd: selectedMonth >= today.slice(0, 7),
-    kept: monthRecords.length,
+    periods: (["week", "month"] as const).map((p) => ({
+      label: p === "week" ? "Week" : "Month",
+      sel: period === p,
+      pick: () => showPeriod(p),
+    })),
+    monthName: periodLabel,
+    monthNote: inPeriod.has(today)
+      ? "This " + period + " · so far"
+      : "Tap any bar for that day",
+    previousLabel: "Previous " + period,
+    nextLabel: "Next " + period,
+    prev: () => (period === "week" ? changeWeek(-1) : changeMonth(-1)),
+    next: () => (period === "week" ? changeWeek(1) : changeMonth(1)),
+    atStart:
+      period === "week"
+        ? selectedWeek <= firstWeek
+        : selectedMonth <= firstYearKey,
+    atEnd:
+      period === "week"
+        ? selectedWeek >= thisWeek
+        : selectedMonth >= today.slice(0, 7),
+    kept: periodRecords.length,
     due:
       closedDays.length * 5 +
-      (selectedMonth === today.slice(0, 7) ? Math.max(0, currentIndex + 1) : 0),
+      (inPeriod.has(today) ? Math.max(0, currentIndex + 1) : 0),
     full: fullDays,
-    best: bestStreak(monthRecords),
+    best: bestStreak(periodRecords),
     avg: closedDays.length
       ? (
           closedDays.reduce((n, d) => n + countDay(records, d), 0) /
           closedDays.length
         ).toFixed(1)
       : "0",
-    bars: Array.from({ length: daysInMonth }, (_, i) => {
-      const day = selectedMonth + "-" + String(i + 1).padStart(2, "0"),
-        n = countDay(records, day);
+    bars: periodDays.map((day, i) => {
+      const n = countDay(records, day);
       return {
-        cls: "bar" + (pickedDay === day ? " sel" : ""),
+        cls:
+          "bar" +
+          (period === "week" ? " wk" : "") +
+          (pickedDay === day ? " sel" : ""),
         future: day > today,
         sel: pickedDay === day,
         lv: day > today ? "lf" : day === today ? "lt" : "l" + n,
         h: Math.max(4, Math.round((n / 5) * 112)),
-        lab: i === 0 || (i + 1) % 7 === 1 ? String(i + 1) : "",
+        lab:
+          period === "week"
+            ? new Date(day + "T12:00:00Z").toLocaleDateString("en-GB", {
+                weekday: "short",
+                timeZone: "UTC",
+              })
+            : i === 0 || (i + 1) % 7 === 1
+              ? String(i + 1)
+              : "",
         label: day + ": " + n + " of 5 prayers",
         pick: () => setSelectedDay(day),
       };
@@ -1094,13 +1216,16 @@ export default function Saff() {
         length = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
       return {
         s: d.toLocaleDateString("en-US", { month: "short" }),
-        sel: key === selectedMonth,
-        cls: "yrow" + (key === selectedMonth ? " sel" : ""),
+        sel: period === "month" && key === selectedMonth,
+        cls:
+          "yrow" + (period === "month" && key === selectedMonth ? " sel" : ""),
         label: d.toLocaleDateString("en-US", {
           month: "long",
           year: "numeric",
         }),
+        // A month picked from the year opens in the month view.
         pick: () => {
+          setPeriod("month");
           setMonth(key);
           setSelectedDay("");
         },
@@ -1269,7 +1394,11 @@ export default function Saff() {
               <small>Your journey, one prayer at a time.</small>
             </div>
             <button className="profile" onClick={() => open("settings")}>
-              <span className="avatar gold">{settings.name.slice(0, 1)}</span>
+              <img
+                className="avatar gold"
+                src={characterArt(settings.gender)}
+                alt=""
+              />
               <span>
                 <strong>{settings.name}</strong>
                 <small>Your personal space</small>
@@ -1392,11 +1521,13 @@ export default function Saff() {
                 onboarding: "Let’s set up your space",
                 delete: "Delete your account",
                 notify: "Never miss a prayer",
+                character: "Choose your character",
               }[sheet]
             }
             close={() => {
               if (sheet === "onboarding") setSkippedSetup(true);
               if (sheet === "notify") return finishNotify();
+              if (sheet === "character") return finishCharacter();
               setSheet(null);
             }}
           >
@@ -1558,6 +1689,8 @@ export default function Saff() {
                 onSubmit={(e) => {
                   e.preventDefault();
                   run(async () => {
+                    if (!draft.gender)
+                      throw new Error("Choose male or female.");
                     await app.saveSettings({ ...draft, onboarded: true });
                     setSheet(null);
                     notify("Assalamu alaikum, " + draft.name.trim() + ".");
@@ -1565,8 +1698,8 @@ export default function Saff() {
                 }}
               >
                 <p className="muted">
-                  Your circles will see this name beside your prayers. Your
-                  location only sets your prayer times.
+                  Your circles will see your name and character beside your
+                  prayers. Your location only sets your prayer times.
                 </p>
                 <label>
                   Your name
@@ -1582,6 +1715,13 @@ export default function Saff() {
                     }
                   />
                 </label>
+                <div className="section-title">
+                  <h3>You are</h3>
+                </div>
+                <CharacterChoice
+                  value={draft.gender}
+                  choose={(gender) => setDraft((d) => ({ ...d, gender }))}
+                />
                 <div className="section-title">
                   <h3>Where do you pray?</h3>
                 </div>
@@ -1670,6 +1810,13 @@ export default function Saff() {
                     }
                   />
                 </label>
+                <div className="section-title">
+                  <h3>You are</h3>
+                </div>
+                <CharacterChoice
+                  value={draft.gender}
+                  choose={(gender) => setDraft((d) => ({ ...d, gender }))}
+                />
                 <div className="form-grid">
                   <label>
                     Calculation method
@@ -2033,6 +2180,32 @@ export default function Saff() {
                   className="text-button full"
                   disabled={pending}
                   onClick={finishNotify}
+                >
+                  Not now
+                </button>
+              </>
+            )}
+            {sheet === "character" && (
+              <>
+                <p className="muted">
+                  Your circle sees your character beside your prayers, in place
+                  of your initials.
+                </p>
+                <CharacterChoice
+                  value={settings.gender}
+                  disabled={pending}
+                  choose={(gender) =>
+                    run(async () => {
+                      await app.saveSettings({ ...settings, gender });
+                      finishCharacter();
+                      notify("Your character is saved.");
+                    })
+                  }
+                />
+                <button
+                  className="text-button full"
+                  disabled={pending}
+                  onClick={finishCharacter}
                 >
                   Not now
                 </button>

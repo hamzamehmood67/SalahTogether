@@ -4,6 +4,7 @@ import {
   DEFAULT_SETTINGS,
   dateKey,
   shiftDate,
+  weekStart,
   countDay,
   streak,
   bestStreak,
@@ -84,6 +85,12 @@ describe("dates and prayer calculations", () => {
   it("handles leap years and month boundaries", () => {
     expect(shiftDate("2028-03-01", -1)).toBe("2028-02-29");
     expect(shiftDate("2026-01-01", -1)).toBe("2025-12-31");
+  });
+  it("starts each week on Monday, across month and year boundaries", () => {
+    expect(weekStart("2026-09-28")).toBe("2026-09-28");
+    expect(weekStart("2026-09-29")).toBe("2026-09-28");
+    expect(weekStart("2026-10-04")).toBe("2026-09-28");
+    expect(weekStart("2026-01-01")).toBe("2025-12-29");
   });
   it("returns ordered times and changes Asr for the selected preference", () => {
     const hanafi = prayerTimes(DEFAULT_SETTINGS, "2026-09-29");

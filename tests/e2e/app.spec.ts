@@ -38,8 +38,13 @@ test("mobile navigation, real history updates, and persistent preferences", asyn
   await page.getByRole("button", { name: "Lahore, PK" }).click();
   await page.getByRole("button", { name: "Calculation settings" }).click();
   await page.getByLabel("Your name").fill("Amina");
+  await expect(
+    page.getByRole("radio", { name: "Male", exact: true }),
+  ).toBeChecked();
+  await page.getByRole("radio", { name: "Female" }).click();
   await page.getByRole("button", { name: "Save preferences" }).click();
   await expect(page.getByRole("heading", { name: "Amina" })).toBeVisible();
+  expect(state.settings.gender).toBe("female");
   await page.reload();
   await expect(page.getByRole("heading", { name: "Amina" })).toBeVisible();
 });
@@ -49,6 +54,13 @@ test("create circle with disclosure and edit goal", async ({ page }) => {
     .getByRole("button", { name: "Circles" })
     .click();
   await page.getByRole("button", { name: /^The Rahman Family/ }).click();
+  // Each member row shows that member's character, not their initials.
+  await expect(
+    page.locator('.reference-circle span[style*="avatars/female.svg"]'),
+  ).toHaveCount(1);
+  await expect(
+    page.locator('.reference-circle span[style*="avatars/male.svg"]'),
+  ).toHaveCount(1);
   await page.getByRole("button", { name: "View Ammi progress" }).click();
   await expect(
     page.getByRole("heading", { name: "Ammi’s journey" }),
@@ -114,6 +126,40 @@ test("all views fit phone widths and desktop", async ({ page }) => {
   }
 });
 
+test("insights opens on this week and reaches back a year", async ({
+  page,
+}) => {
+  await page
+    .getByRole("navigation", { name: "Mobile navigation" })
+    .getByRole("button", { name: "Insights" })
+    .click();
+  const days = page.getByRole("group", { name: /^Daily prayers in / });
+  await expect(
+    page.getByRole("button", { name: "Week", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  // Monday to Sunday around Tuesday 29 September.
+  await expect(days).toHaveAccessibleName(/28 Sept? – 4 Oct$/);
+  await expect(days.getByRole("button")).toHaveCount(7);
+  await expect(page.getByText("This week · so far")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Next week" })).toBeDisabled();
+  await page.getByRole("button", { name: "Previous week" }).click();
+  await expect(days).toHaveAccessibleName(/21\s?–\s?27 Sept?$/);
+  await expect(page.getByText("30/35", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Month", exact: true }).click();
+  await expect(days).toHaveAccessibleName("Daily prayers in September 2026");
+  await expect(days.getByRole("button")).toHaveCount(30);
+  // The year grid reaches 12 months back; a month picked there opens as a month.
+  await page.getByRole("button", { name: "October 2025" }).click();
+  await expect(days).toHaveAccessibleName("Daily prayers in October 2025");
+  await expect(
+    page.getByRole("button", { name: "Previous month" }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: "Week", exact: true }).click();
+  await expect(days).toHaveAccessibleName(/29 Sept? – 5 Oct 2025$/);
+  await expect(
+    page.getByRole("button", { name: "Previous week" }),
+  ).toBeDisabled();
+});
 test("invite links open a prefilled join sheet and owners can share one", async ({
   page,
 }) => {

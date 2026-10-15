@@ -455,7 +455,7 @@ export default function InsightsReference({ v }: { v: ReferenceValues }) {
               {v.yearLine}
             </span>
           </div>
-          <span
+          <div
             style={
               {
                 height: "32px",
@@ -470,9 +470,18 @@ export default function InsightsReference({ v }: { v: ReferenceValues }) {
                 border: "1px solid rgba(63,209,168,0.35)",
               } as CSSProperties
             }
+            className={"period"}
+            role={"group"}
+            aria-label={"Period"}
           >
-            {"12-month record"}
-          </span>
+            {(v.periods ?? []).map((p: any, index: number) => (
+              <Fragment key={index}>
+                <button onClick={p.pick} aria-pressed={p.sel}>
+                  {p.label}
+                </button>
+              </Fragment>
+            ))}
+          </div>
         </div>
         <div
           className={"enter"}
@@ -490,7 +499,7 @@ export default function InsightsReference({ v }: { v: ReferenceValues }) {
             className={"nav"}
             onClick={v.prev}
             disabled={v.atStart}
-            aria-label={"Previous month"}
+            aria-label={v.previousLabel}
           >
             <svg
               viewBox={"0 0 24 24"}
@@ -539,7 +548,7 @@ export default function InsightsReference({ v }: { v: ReferenceValues }) {
             className={"nav"}
             onClick={v.next}
             disabled={v.atEnd}
-            aria-label={"Next month"}
+            aria-label={v.nextLabel}
           >
             <svg
               viewBox={"0 0 24 24"}

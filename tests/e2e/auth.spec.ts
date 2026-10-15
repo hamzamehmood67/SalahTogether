@@ -46,9 +46,13 @@ test("new account starts empty, persists its first prayer, and clears on sign-ou
   await setup.getByRole("radio", { name: /Dubai, AE/ }).click();
   await setup.getByRole("radio", { name: /Lahore, PK/ }).click();
   await setup.getByRole("button", { name: "Start my journey" }).click();
+  await expect(page.getByRole("status")).toContainText("Choose male or female");
+  await setup.getByRole("radio", { name: "Female" }).click();
+  await setup.getByRole("button", { name: "Start my journey" }).click();
   await expect(setup).toHaveCount(0);
   expect(state.settings).toMatchObject({
     name: "Amina",
+    gender: "female",
     city: "Lahore, PK",
     timezone: "Asia/Karachi",
     onboarded: true,
@@ -159,6 +163,7 @@ test("start a circle carries through sign-in and first-run setup", async ({
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   const setup = page.getByRole("dialog", { name: "Let’s set up your space" });
   await setup.getByLabel("Your name").fill("Amina");
+  await setup.getByRole("radio", { name: "Female" }).click();
   await setup.getByRole("button", { name: "Start my journey" }).click();
   await expect(
     page.getByRole("dialog", { name: "Start a circle" }),
@@ -259,10 +264,50 @@ test("new users see the notification prompt after setup, then their chosen step"
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   const setup = page.getByRole("dialog", { name: "Let’s set up your space" });
   await setup.getByLabel("Your name").fill("Amina");
+  await setup.getByRole("radio", { name: "Female" }).click();
   await setup.getByRole("button", { name: "Start my journey" }).click();
   const prompt = page.getByRole("dialog", { name: "Never miss a prayer" });
   await prompt.getByRole("button", { name: "Not now" }).click();
   await expect(
     page.getByRole("dialog", { name: "Start a circle" }),
   ).toBeVisible();
+});
+
+test("accounts without a character are asked once and their circle sees it", async ({
+  page,
+}) => {
+  const state = await mockSupabase(page, { characterPrompt: true });
+  await page.goto("/");
+  const prompt = page.getByRole("dialog", { name: "Choose your character" });
+  await prompt.getByRole("radio", { name: "Female" }).click();
+  await expect(prompt).toHaveCount(0);
+  await expect(page.getByRole("status")).toContainText("character is saved");
+  expect(state.settings.gender).toBe("female");
+  // Characters replace initials, drawn over each member's color.
+  await expect(page.locator(".reference-today .av").first()).toHaveAttribute(
+    "style",
+    /avatars\/female\.svg/,
+  );
+  await expect(page.locator(".reference-today .av").first()).toHaveText("");
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Yusuf" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("Not now keeps the neutral character without asking again", async ({
+  page,
+}) => {
+  const state = await mockSupabase(page, { characterPrompt: true });
+  await page.goto("/");
+  const prompt = page.getByRole("dialog", { name: "Choose your character" });
+  await prompt.getByRole("button", { name: "Not now" }).click();
+  await expect(prompt).toHaveCount(0);
+  expect(state.settings.gender).toBeUndefined();
+  await expect(page.locator(".reference-today .av").first()).toHaveAttribute(
+    "style",
+    /avatars\/neutral\.svg/,
+  );
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Yusuf" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 });

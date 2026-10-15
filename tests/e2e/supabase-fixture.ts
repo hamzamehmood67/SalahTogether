@@ -19,6 +19,8 @@ export async function mockSupabase(
     failDashboard?: boolean;
     // Show the first-landing notification prompt instead of marking it answered.
     notifyPrompt?: boolean;
+    // Leave the populated account without a character, so it is asked to choose one.
+    characterPrompt?: boolean;
   } = {},
 ) {
   const populated = options.populated ?? true;
@@ -35,6 +37,9 @@ export async function mockSupabase(
       ...DEFAULT_SETTINGS,
       name: populated ? "Yusuf" : "Friend",
       onboarded: populated,
+      ...(populated && !options.characterPrompt
+        ? { gender: "male" as const }
+        : {}),
     },
     records,
     circles: (populated
@@ -53,6 +58,7 @@ export async function mockSupabase(
                 name: "Ammi",
                 records: [...records],
                 nudges: true,
+                gender: "female",
               },
             ],
           },
@@ -159,13 +165,17 @@ export async function mockSupabase(
         });
         return;
       }
-      // Like the real RPC, members get the code only while member invites are on.
+      // Like the real RPC, members get the code only while member invites are on,
+      // and each member's character comes from their own settings.
       result = {
         settings: state.settings,
         records: state.records,
         circles: state.circles.map((c) => ({
           ...c,
           code: c.owner === id || c.membersCanInvite ? c.code : null,
+          members: c.members.map((m) =>
+            m.id === id ? { ...m, gender: state.settings.gender ?? null } : m,
+          ),
         })),
       };
     } else if (method === "set_prayer") {
@@ -180,6 +190,17 @@ export async function mockSupabase(
         }),
       );
     } else if (method === "save_settings") {
+      const gender = payload.p_settings.gender;
+      if (
+        "gender" in payload.p_settings &&
+        !["male", "female"].includes(gender)
+      ) {
+        await route.fulfill({
+          status: 400,
+          json: { message: "Choose male or female" },
+        });
+        return;
+      }
       state.settings = payload.p_settings;
     } else if (method === "create_circle") {
       result = "new-circle";
@@ -208,7 +229,13 @@ export async function mockSupabase(
         code: "FRIENDS1",
         membersCanInvite: false,
         members: [
-          { id: "member2", name: "Bilal", records: [], nudges: false },
+          {
+            id: "member2",
+            name: "Bilal",
+            records: [],
+            nudges: false,
+            gender: "male",
+          },
           { id, name: state.settings.name, records: state.records },
         ],
       });

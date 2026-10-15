@@ -9,7 +9,7 @@ export default function Privacy() {
         ← Back to Saff
       </a>
       <h1>Privacy policy</h1>
-      <p className="muted">Last updated 15 October 2026</p>
+      <p className="muted">Last updated 16 October 2026</p>
       <p>
         Saff is a prayer tracker you can share with family and friends. This
         page explains what Saff stores, who can see it, and how to remove it.
@@ -22,6 +22,11 @@ export default function Privacy() {
         </li>
         <li>
           <strong>The name you choose</strong>, shown to people in your circles.
+        </li>
+        <li>
+          <strong>Whether you are male or female</strong>, if you tell us, to
+          show your character (a boy in a cap or a girl in a hijab) in place of
+          your initials.
         </li>
         <li>
           <strong>Your prayer location settings</strong>: a city label, latitude
@@ -46,20 +51,21 @@ export default function Privacy() {
       </ul>
       <p>
         Your browser keeps your sign-in session, any invite you opened before
-        signing in, and whether we have already offered you notifications, in
-        local storage. Saff has no advertising, analytics or tracking cookies,
-        and we do not sell your data. Our hosting and database providers may
-        keep standard technical logs, such as IP addresses, for security and
-        operations.
+        signing in, and whether we have already offered you notifications or
+        asked you to choose a character, in local storage. Saff has no
+        advertising, analytics or tracking cookies, and we do not sell your
+        data. Our hosting and database providers may keep standard technical
+        logs, such as IP addresses, for security and operations.
       </p>
       <h2>Who can see it</h2>
       <p>
         Your data is private unless you share a circle with someone. When you
-        create or join a circle, its members can see your name, your whole
-        prayer history (including days before you joined), the streaks and
-        milestones calculated from it, whether you accept gentle nudges, and
-        your current date, which can hint at your time zone. They cannot see
-        your email address, location, coordinates or notification settings.
+        create or join a circle, its members can see your name and character,
+        your whole prayer history (including days before you joined), the
+        streaks and milestones calculated from it, whether you accept gentle
+        nudges, and your current date, which can hint at your time zone. They
+        cannot see your email address, location, coordinates or notification
+        settings.
       </p>
       <p>
         Anyone with a circle’s invite code or link can join it, so share it only
@@ -86,7 +92,9 @@ export default function Privacy() {
       </ul>
       <h2>Your choices</h2>
       <ul>
-        <li>Change your name and location in Settings at any time.</li>
+        <li>
+          Change your name, character and location in Settings at any time.
+        </li>
         <li>
           Turn reminders, nudges, or notifications on a particular device on or
           off in Settings.
