@@ -864,6 +864,34 @@ small {
 .empty-card .primary {
   margin: auto;
 }
+.notify-art {
+  display: grid;
+  place-items: center;
+  margin: 4px 0 14px;
+}
+.notify-points {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0 22px;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--cream);
+}
+.notify-points li {
+  position: relative;
+  padding-left: 18px;
+}
+.notify-points li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold);
+}
 .circle-role {
   margin: -4px 0 6px;
   font-size: 11px;

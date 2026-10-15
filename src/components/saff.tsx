@@ -207,6 +207,22 @@ function forgetInvite() {
     /* Nothing to forget. */
   }
 }
+// The first-landing notification prompt is offered once per account on each device.
+const NOTIFY_ASKED_KEY = "saff-notify-asked:";
+function notifyAsked(user: string) {
+  try {
+    return !!localStorage.getItem(NOTIFY_ASKED_KEY + user);
+  } catch {
+    return true; // Without storage it could not be remembered, so never nag.
+  }
+}
+function rememberNotifyAsked(user: string) {
+  try {
+    localStorage.setItem(NOTIFY_ASKED_KEY + user, "1");
+  } catch {
+    /* Nothing to remember it in. */
+  }
+}
 export default function Saff() {
   const app = useSaff();
   const { settings, records, circles, ready, welcome, userId } = app;
@@ -224,6 +240,7 @@ export default function Saff() {
       | "circle"
       | "onboarding"
       | "delete"
+      | "notify"
     >(null),
     [now, setNow] = useState(new Date()),
     [toast, setToast] = useState(""),
@@ -251,13 +268,44 @@ export default function Saff() {
     // Shown while the member-invite switch is saving; null shows the saved value.
     [invitesSaving, setInvitesSaving] = useState<boolean | null>(null),
     // The Circles tab lists every circle; "detail" shows the selected one.
-    [circleView, setCircleView] = useState<"list" | "detail">("list");
+    [circleView, setCircleView] = useState<"list" | "detail">("list"),
+    // First landing: check whether to offer notifications before other prompts.
+    [notifyStep, setNotifyStep] = useState<"checking" | "offer" | "done">(
+      "checking",
+    );
   const invitePrompted = useRef(false);
   useEffect(() => {
     setSheet(null);
     setNudged({});
     setCircleId("");
+    setNotifyStep("checking");
   }, [userId]);
+  useEffect(() => {
+    if (notifyStep !== "checking" || !ready || !userId || welcome) return;
+    // Reminders need a prayer location, so the offer follows first-run setup.
+    if (!settings.onboarded && !skippedSetup) return;
+    if (
+      !supabase ||
+      !process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
+      notifyAsked(userId)
+    ) {
+      setNotifyStep("done");
+      return;
+    }
+    let active = true;
+    // Only a device that could receive push but is not set up for this account.
+    pushState(supabase)
+      .then(
+        (state) => active && setNotifyStep(state === "off" ? "offer" : "done"),
+      )
+      .catch(() => active && setNotifyStep("done"));
+    return () => {
+      active = false;
+    };
+  }, [notifyStep, ready, userId, welcome, settings.onboarded, skippedSetup]);
+  useEffect(() => {
+    if (notifyStep === "offer" && !sheet) setSheet("notify");
+  }, [notifyStep, sheet]);
   useEffect(() => {
     if (!welcome) setSheet((current) => (current === "auth" ? null : current));
   }, [welcome]);
@@ -297,6 +345,7 @@ export default function Saff() {
       return;
     }
     if (welcome || (!settings.onboarded && !skippedSetup)) return;
+    if (notifyStep !== "done") return;
     forgetInvite();
     setInvited("");
     setFormValue(invited);
@@ -309,10 +358,12 @@ export default function Saff() {
     welcome,
     settings.onboarded,
     skippedSetup,
+    notifyStep,
   ]);
   useEffect(() => {
     if (!ready || !intent || sheet || !userId || welcome) return;
     if (!settings.onboarded && !skippedSetup) return;
+    if (notifyStep !== "done") return;
     setIntent(null);
     // A pending invite link already opens the join sheet with its code.
     if (!invited) open(intent);
@@ -325,6 +376,7 @@ export default function Saff() {
     settings.onboarded,
     skippedSetup,
     invited,
+    notifyStep,
   ]);
   const today = dateKey(now, settings.timezone);
   const times = useMemo(() => prayerTimes(settings, today), [settings, today]);
@@ -455,6 +507,26 @@ export default function Saff() {
       options: { emailRedirectTo: window.location.origin },
     });
     if (error) throw error;
+  }
+  function finishNotify() {
+    if (userId) rememberNotifyAsked(userId);
+    setNotifyStep("done");
+    setSheet(null);
+  }
+  async function turnOnNotifications() {
+    if (!supabase) return;
+    try {
+      // Asks the browser first, inside the tap, then registers this device.
+      await enablePush(supabase);
+    } catch (e) {
+      finishNotify();
+      throw e;
+    }
+    // A registered device alone sends nothing: reminders and nudges are account settings.
+    await app.saveSettings({ ...settings, reminders: true, nudges: true });
+    setDevicePush("on");
+    finishNotify();
+    notify("Reminders are on. You can change this in Settings.");
   }
   function open(type: typeof sheet) {
     setDraft(settings);
@@ -1319,10 +1391,12 @@ export default function Saff() {
                 circle: circle?.name || "Circle",
                 onboarding: "Let’s set up your space",
                 delete: "Delete your account",
+                notify: "Never miss a prayer",
               }[sheet]
             }
             close={() => {
               if (sheet === "onboarding") setSkippedSetup(true);
+              if (sheet === "notify") return finishNotify();
               setSheet(null);
             }}
           >
@@ -1931,6 +2005,37 @@ export default function Saff() {
                     </button>
                   </>
                 )}
+              </>
+            )}
+            {sheet === "notify" && (
+              <>
+                <div className="notify-art">
+                  <Art id="icoIsha" size={72} />
+                </div>
+                <p className="muted">
+                  Get a gentle reminder at each prayer time in {settings.city},
+                  and let your circle nudge you when a prayer is still open.
+                </p>
+                <ul className="notify-points">
+                  <li>All five prayers, at their start time</li>
+                  <li>At most one nudge per prayer, across your circles</li>
+                  <li>Change or turn off anytime in Settings</li>
+                </ul>
+                <button
+                  className="primary full"
+                  disabled={pending}
+                  onClick={() => run(turnOnNotifications)}
+                >
+                  <Bell size={17} />
+                  Turn on notifications
+                </button>
+                <button
+                  className="text-button full"
+                  disabled={pending}
+                  onClick={finishNotify}
+                >
+                  Not now
+                </button>
               </>
             )}
             {sheet === "delete" && (
