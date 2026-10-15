@@ -42,6 +42,7 @@ export async function mockSupabase(
             code: "SAFF26",
             owner: id,
             goal: 750,
+            membersCanInvite: false,
             members: [
               { id, name: "Yusuf", records, nudges: false },
               {
@@ -149,10 +150,14 @@ export async function mockSupabase(
         });
         return;
       }
+      // Like the real RPC, members get the code only while member invites are on.
       result = {
         settings: state.settings,
         records: state.records,
-        circles: state.circles,
+        circles: state.circles.map((c) => ({
+          ...c,
+          code: c.owner === id || c.membersCanInvite ? c.code : null,
+        })),
       };
     } else if (method === "set_prayer") {
       state.records = state.records.filter(
@@ -175,6 +180,7 @@ export async function mockSupabase(
         owner: id,
         goal: 750,
         code: "NEWCODE1",
+        membersCanInvite: false,
         members: [{ id, name: state.settings.name, records: state.records }],
       });
     } else if (method === "join_circle") {
@@ -190,6 +196,8 @@ export async function mockSupabase(
         name: "Friends of the Masjid",
         owner: "member2",
         goal: 750,
+        code: "FRIENDS1",
+        membersCanInvite: false,
         members: [
           { id: "member2", name: "Bilal", records: [], nudges: false },
           { id, name: state.settings.name, records: state.records },
@@ -199,6 +207,26 @@ export async function mockSupabase(
       state.deleted = true;
       state.records = [];
       state.circles = [];
+    } else if (
+      method === "set_circle_invites" ||
+      method === "reset_circle_code"
+    ) {
+      const circle = state.circles.find((c) => c.id === payload.p_circle)!;
+      if (circle.owner !== id) {
+        await route.fulfill({
+          status: 400,
+          json: { message: "Only the circle admin can change who invites" },
+        });
+        return;
+      }
+      if (method === "reset_circle_code") {
+        circle.code = "RESET001";
+        result = circle.code;
+      } else {
+        if (circle.membersCanInvite && !payload.p_allowed)
+          circle.code = "ROTATED1";
+        circle.membersCanInvite = payload.p_allowed;
+      }
     } else if (method === "set_circle_goal") {
       state.circles.find((c) => c.id === payload.p_circle)!.goal =
         payload.p_goal;
