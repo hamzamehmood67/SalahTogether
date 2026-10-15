@@ -14,6 +14,8 @@ export default defineConfig({
       SAFF_TEST_OUTPUT: ".next-e2e",
       NEXT_PUBLIC_SUPABASE_URL: "https://saff-test.supabase.co",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_browser_test_only",
+      // Set explicitly so the notification prompt does not depend on .env.local.
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: "BTestOnlyNotARealVapidKeyAAA",
     },
     url: "http://127.0.0.1:3100",
     reuseExistingServer: false,

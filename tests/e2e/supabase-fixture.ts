@@ -8,6 +8,7 @@ import {
 } from "../../src/lib/domain";
 
 export const AUTH_KEY = "sb-saff-test-auth-token";
+export const NOTIFY_ASKED_KEY = "saff-notify-asked:";
 const id = "11111111-1111-4111-8111-111111111111";
 // Browser-only network fixtures. Nothing here is imported by the app.
 export async function mockSupabase(
@@ -16,6 +17,8 @@ export async function mockSupabase(
     signedIn?: boolean;
     populated?: boolean;
     failDashboard?: boolean;
+    // Show the first-landing notification prompt instead of marking it answered.
+    notifyPrompt?: boolean;
   } = {},
 ) {
   const populated = options.populated ?? true;
@@ -57,8 +60,14 @@ export async function mockSupabase(
       : []) as Circle[],
     failDashboard: options.failDashboard ?? false,
     otpRequests: 0,
+    pushRegistered: false,
     deleted: false,
   };
+  if (!options.notifyPrompt)
+    await page.addInitScript(
+      (key) => localStorage.setItem(key, "1"),
+      NOTIFY_ASKED_KEY + id,
+    );
   if (options.signedIn !== false) {
     await page.addInitScript(
       ({ key, id }) => {
@@ -203,6 +212,8 @@ export async function mockSupabase(
           { id, name: state.settings.name, records: state.records },
         ],
       });
+    } else if (method === "register_push_subscription") {
+      state.pushRegistered = true;
     } else if (method === "delete_account") {
       state.deleted = true;
       state.records = [];
