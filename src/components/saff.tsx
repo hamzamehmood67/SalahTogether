@@ -776,7 +776,15 @@ export default function Saff() {
           }),
       };
     }),
-    circleName: circle?.name || "Start your circle",
+    // The chevron shows the name opens Your circles (switch, create, join).
+    circleName: (
+      <span className="circle-switch-row">
+        <span className="circle-switch-name">
+          {circle?.name || "Start your circle"}
+        </span>
+        <ChevronDown className="circle-switch" size={18} aria-hidden="true" />
+      </span>
+    ),
     circleSummary: circle
       ? circle.members.filter((m) =>
           m.records.some(
