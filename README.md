@@ -109,7 +109,7 @@ English UI with Arabic prayer labels; online authenticated writes; no demo works
 
 The five mobile screens in `src/components/reference` are React ports of the supplied HTML, preserving its SVG definitions, font files, colors, dimensions, easing curves, and animation durations. `original.css` scopes the original rules per screen; `responsive.css` only adapts viewport sizes, safe areas, dialog stacking, and desktop composition. Application data and actions are bound in `saff.tsx`.
 
-Two deliberate departures live in `scripts/port-reference.py`, so a re-import keeps them: the circle screen's back arrow returns to the circles list, and Insights opens on the current week (Monday to Sunday) with a Week / Month switch where the design shows a "12-month record" pill. The arrows step back a week or a month at a time, and the year grid opens any of the last 12 months.
+Three deliberate departures live in `scripts/port-reference.py`, so a re-import keeps them: the circle screen's back arrow returns to the circles list, your character at the end of Today's location row opens Settings on phones, and Insights opens on the current week (Monday to Sunday) with a Week / Month switch where the design shows a "12-month record" pill. The arrows step back a week or a month at a time, and the year grid opens any of the last 12 months.
 
 To re-import an updated copy of the same design format:
 
