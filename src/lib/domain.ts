@@ -3,6 +3,8 @@ export const PRAYERS = ["fajr", "dhuhr", "asr", "maghrib", "isha"] as const;
 export type Prayer = (typeof PRAYERS)[number];
 export const NAMES = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
 export const ARABIC = ["الفجر", "الظهر", "العصر", "المغرب", "العشاء"];
+// Picks the person's character: a boy in a kufi or a girl in a hijab.
+export type Gender = "male" | "female";
 export interface Settings {
   name: string;
   city: string;
@@ -16,6 +18,8 @@ export interface Settings {
   offset: number;
   reminderPrayers: Prayer[];
   onboarded: boolean;
+  // Unset until chosen; the app shows a neutral character meanwhile.
+  gender?: Gender;
 }
 export interface RecordItem {
   date: string;
@@ -26,6 +30,7 @@ export interface Member {
   name: string;
   records: RecordItem[];
   nudges?: boolean;
+  gender?: Gender | null;
   timezone?: string;
   localDate?: string;
 }
