@@ -892,6 +892,45 @@ small {
   border-radius: 50%;
   background: var(--gold);
 }
+/* Today: your character at the end of the location row opens Settings (see port-reference.py). */
+.reference-today .me {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  margin-left: auto;
+}
+.reference-today .me span {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(245, 185, 66, 0.45);
+  transition: transform 0.25s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.reference-today .me:hover span {
+  transform: scale(1.06);
+}
+/* Narrow phones: keep the character beside the location; the date takes the next line. */
+@media (max-width: 389px) {
+  .reference-today .me {
+    order: 1;
+  }
+  .reference-today
+    .reference-content
+    [data-section="0"]
+    > div:last-child
+    > span {
+    order: 2;
+  }
+}
+/* Desktop shows the same character in the sidebar's profile button. */
+@media (min-width: 1024px) {
+  .reference-today .me {
+    display: none;
+  }
+}
 /* Male / female choice: each option shows its character. */
 .character-choice {
   display: grid;
