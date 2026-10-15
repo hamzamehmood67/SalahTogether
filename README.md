@@ -24,16 +24,7 @@ Open http://localhost:3000. Visitors see the welcome screen and sign in with a c
    The legacy variable `NEXT_PUBLIC_SUPABASE_ANON_KEY` remains supported. Use a publishable/anon key here, never a secret or service-role key. Core tracking does not require the service-role key.
 
 3. **Configure email sign-in.** Under Authentication, enable the Email provider and allow new users to sign up. In **URL Configuration**, set Site URL to `http://localhost:3000` for local development and add `http://localhost:3000` to Redirect URLs. If you browse through `http://127.0.0.1:3000`, add that exact origin too. For phone testing over your LAN, add the computer's LAN origin including the port and open the app at that address. For production, change Site URL to the deployed HTTPS origin and add that origin to Redirect URLs. Keep the default magic-link email template using `{{ .ConfirmationURL }}`.
-4. **Add the sign-in code to the emails.** Under Authentication → Emails, edit both the **Magic Link** and **Confirm signup** templates (new accounts receive the second) so they include the code as well as the link, for example:
-
-   ```html
-   <h2>Your Saff sign-in code</h2>
-   <p>Enter this code in Saff: <strong>{{ .Token }}</strong></p>
-   <p>
-     Or open this link on the same device:
-     <a href="{{ .ConfirmationURL }}">Sign in to Saff</a>
-   </p>
-   ```
+4. **Use the Saff email templates.** Under Authentication → Emails, paste [`supabase/templates/magic-link.html`](supabase/templates/magic-link.html) into **Magic Link** (subject: `Your Saff sign-in code`) and [`supabase/templates/confirm-signup.html`](supabase/templates/confirm-signup.html) into **Confirm signup** (subject: `Welcome to Saff: your sign-in code`); new accounts receive the second. Both show the code (`{{ .Token }}`) and a sign-in button (`{{ .ConfirmationURL }}`), and load the app icon from `{{ .SiteURL }}/icon-192.png`, so set the Site URL first.
 
    The app accepts the code in the sign-in sheet; the link still works. Codes from an installed phone app and from Android must be typed, because a link opens in the default browser.
 
