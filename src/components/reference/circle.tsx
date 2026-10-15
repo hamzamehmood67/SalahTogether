@@ -585,7 +585,7 @@ export default function CircleReference({ v }: { v: ReferenceValues }) {
           data-section={"0"}
         >
           <button
-            aria-label={"Back to Today"}
+            aria-label={"Back to your circles"}
             style={
               {
                 width: "44px",
@@ -600,7 +600,7 @@ export default function CircleReference({ v }: { v: ReferenceValues }) {
               } as CSSProperties
             }
             data-reference-link={"true"}
-            onClick={v.goToday}
+            onClick={v.goBack}
           >
             <svg
               viewBox={"0 0 24 24"}
