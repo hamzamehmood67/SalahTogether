@@ -44,6 +44,7 @@ import {
   Prayer,
   dateKey,
   shiftDate,
+  weekStart,
   countDay,
   streak,
   bestStreak,
@@ -250,6 +251,8 @@ export default function Saff() {
     [pending, setPending] = useState(false),
     [circleId, setCircleId] = useState(""),
     [badgeId, setBadgeId] = useState("year"),
+    [period, setPeriod] = useState<"week" | "month">("week"),
+    [week, setWeek] = useState(""),
     [month, setMonth] = useState(""),
     [selectedDay, setSelectedDay] = useState(""),
     [memberId, setMemberId] = useState(""),
@@ -568,28 +571,61 @@ export default function Saff() {
     }
     open("invite");
   }
+  // Insights shows one week (Monday to Sunday) or one month at a time.
   const selectedMonth = month || today.slice(0, 7);
   const [yearNum, monthNum] = selectedMonth.split("-").map(Number);
   const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
-  const monthRecords = records.filter((r) => r.date.startsWith(selectedMonth));
-  const pickedDay = selectedDay.startsWith(selectedMonth)
+  const thisWeek = weekStart(today);
+  const selectedWeek = week || thisWeek;
+  const periodDays =
+    period === "week"
+      ? Array.from({ length: 7 }, (_, i) => shiftDate(selectedWeek, i))
+      : Array.from(
+          { length: daysInMonth },
+          (_, i) => selectedMonth + "-" + String(i + 1).padStart(2, "0"),
+        );
+  const inPeriod = new Set(periodDays);
+  const periodRecords = records.filter((r) => inPeriod.has(r.date));
+  const pickedDay = inPeriod.has(selectedDay)
     ? selectedDay
-    : selectedMonth === today.slice(0, 7)
+    : inPeriod.has(today)
       ? today
-      : selectedMonth + "-01";
-  const monthLabel = new Date(yearNum, monthNum - 1, 1).toLocaleDateString(
-    "en-US",
-    { month: "long", year: "numeric" },
-  );
-  const closedDays = Array.from(
-    { length: daysInMonth },
-    (_, i) => selectedMonth + "-" + String(i + 1).padStart(2, "0"),
-  ).filter((d) => d < today);
+      : periodDays[0];
+  const periodLabel =
+    period === "week"
+      ? new Intl.DateTimeFormat("en-GB", {
+          day: "numeric",
+          month: "short",
+          year:
+            selectedWeek.slice(0, 4) === today.slice(0, 4)
+              ? undefined
+              : "numeric",
+          timeZone: "UTC",
+        }).formatRange(
+          new Date(selectedWeek + "T12:00:00Z"),
+          new Date(shiftDate(selectedWeek, 6) + "T12:00:00Z"),
+        )
+      : new Date(yearNum, monthNum - 1, 1).toLocaleDateString("en-US", {
+          month: "long",
+          year: "numeric",
+        });
+  const closedDays = periodDays.filter((d) => d < today);
   const fullDays = closedDays.filter((d) => countDay(records, d) === 5).length;
   function changeMonth(n: number) {
     const d = new Date(yearNum, monthNum - 1 + n, 1);
     setMonth(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"));
     setSelectedDay("");
+  }
+  function changeWeek(n: number) {
+    setWeek(shiftDate(selectedWeek, n * 7));
+    setSelectedDay("");
+  }
+  // Switching between week and month keeps the picked day in view.
+  function showPeriod(next: "week" | "month") {
+    setPeriod(next);
+    setWeek(weekStart(pickedDay));
+    setMonth(pickedDay.slice(0, 7));
+    setSelectedDay(pickedDay);
   }
   const circleMonthTotal =
     circle?.members.reduce(
@@ -687,6 +723,7 @@ export default function Saff() {
     firstYearMonth.getFullYear() +
     "-" +
     String(firstYearMonth.getMonth() + 1).padStart(2, "0");
+  const firstWeek = weekStart(firstYearKey + "-01");
   const referenceValues: ReferenceValues = {
     name: settings.name,
     toast: sheet ? null : toast,
@@ -1010,37 +1047,59 @@ export default function Saff() {
       " days logged · " +
       records.length.toLocaleString() +
       " prayers",
-    monthName: monthLabel,
-    monthNote:
-      selectedMonth === today.slice(0, 7)
-        ? "This month · so far"
-        : "Tap any bar for that day",
-    prev: () => changeMonth(-1),
-    next: () => changeMonth(1),
-    atStart: selectedMonth <= firstYearKey,
-    atEnd: selectedMonth >= today.slice(0, 7),
-    kept: monthRecords.length,
+    periods: (["week", "month"] as const).map((p) => ({
+      label: p === "week" ? "Week" : "Month",
+      sel: period === p,
+      pick: () => showPeriod(p),
+    })),
+    monthName: periodLabel,
+    monthNote: inPeriod.has(today)
+      ? "This " + period + " · so far"
+      : "Tap any bar for that day",
+    previousLabel: "Previous " + period,
+    nextLabel: "Next " + period,
+    prev: () => (period === "week" ? changeWeek(-1) : changeMonth(-1)),
+    next: () => (period === "week" ? changeWeek(1) : changeMonth(1)),
+    atStart:
+      period === "week"
+        ? selectedWeek <= firstWeek
+        : selectedMonth <= firstYearKey,
+    atEnd:
+      period === "week"
+        ? selectedWeek >= thisWeek
+        : selectedMonth >= today.slice(0, 7),
+    kept: periodRecords.length,
     due:
       closedDays.length * 5 +
-      (selectedMonth === today.slice(0, 7) ? Math.max(0, currentIndex + 1) : 0),
+      (inPeriod.has(today) ? Math.max(0, currentIndex + 1) : 0),
     full: fullDays,
-    best: bestStreak(monthRecords),
+    best: bestStreak(periodRecords),
     avg: closedDays.length
       ? (
           closedDays.reduce((n, d) => n + countDay(records, d), 0) /
           closedDays.length
         ).toFixed(1)
       : "0",
-    bars: Array.from({ length: daysInMonth }, (_, i) => {
-      const day = selectedMonth + "-" + String(i + 1).padStart(2, "0"),
-        n = countDay(records, day);
+    bars: periodDays.map((day, i) => {
+      const n = countDay(records, day);
       return {
-        cls: "bar" + (pickedDay === day ? " sel" : ""),
+        cls:
+          "bar" +
+          (period === "week" ? " wk" : "") +
+          (pickedDay === day ? " sel" : ""),
         future: day > today,
         sel: pickedDay === day,
         lv: day > today ? "lf" : day === today ? "lt" : "l" + n,
         h: Math.max(4, Math.round((n / 5) * 112)),
-        lab: i === 0 || (i + 1) % 7 === 1 ? String(i + 1) : "",
+        lab:
+          period === "week"
+            ? new Date(day + "T12:00:00Z").toLocaleDateString("en-GB", {
+                weekday: "short",
+                timeZone: "UTC",
+              })
+            : i === 0 || (i + 1) % 7 === 1
+              ? String(i + 1)
+              : "",
         label: day + ": " + n + " of 5 prayers",
         pick: () => setSelectedDay(day),
       };
@@ -1094,13 +1153,16 @@ export default function Saff() {
         length = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
       return {
         s: d.toLocaleDateString("en-US", { month: "short" }),
-        sel: key === selectedMonth,
-        cls: "yrow" + (key === selectedMonth ? " sel" : ""),
+        sel: period === "month" && key === selectedMonth,
+        cls:
+          "yrow" + (period === "month" && key === selectedMonth ? " sel" : ""),
         label: d.toLocaleDateString("en-US", {
           month: "long",
           year: "numeric",
         }),
+        // A month picked from the year opens in the month view.
         pick: () => {
+          setPeriod("month");
           setMonth(key);
           setSelectedDay("");
         },
