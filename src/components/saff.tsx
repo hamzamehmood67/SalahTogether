@@ -38,6 +38,7 @@ import {
   NAMES,
   ARABIC,
   Settings,
+  Gender,
   DEFAULT_SETTINGS,
   CITIES,
   RecordItem,
@@ -210,6 +211,7 @@ function forgetInvite() {
 }
 // First-landing offers are made once per account on each device.
 const NOTIFY_ASKED_KEY = "saff-notify-asked:";
+const CHARACTER_ASKED_KEY = "saff-character-asked:";
 function wasAsked(key: string, user: string) {
   try {
     return !!localStorage.getItem(key + user);
@@ -223,6 +225,41 @@ function rememberAsked(key: string, user: string) {
   } catch {
     /* Nothing to remember it in. */
   }
+}
+// Each person's character; a sleepy crescent stands in until they choose.
+function characterArt(gender?: Gender | null) {
+  return "/avatars/" + (gender || "neutral") + ".svg";
+}
+// The reference screens' avatar circles take the character over the member's color.
+function characterBackground(gender: Gender | null | undefined, color: string) {
+  return "url(" + characterArt(gender) + ") center / cover no-repeat, " + color;
+}
+function CharacterChoice({
+  value,
+  choose,
+  disabled,
+}: {
+  value?: Gender | null;
+  choose: (gender: Gender) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="character-choice" role="radiogroup" aria-label="You are">
+      {(["male", "female"] as const).map((gender) => (
+        <button
+          key={gender}
+          type="button"
+          role="radio"
+          aria-checked={value === gender}
+          disabled={disabled}
+          onClick={() => choose(gender)}
+        >
+          <img src={characterArt(gender)} alt="" />
+          {gender === "male" ? "Male" : "Female"}
+        </button>
+      ))}
+    </div>
+  );
 }
 export default function Saff() {
   const app = useSaff();
@@ -242,6 +279,7 @@ export default function Saff() {
       | "onboarding"
       | "delete"
       | "notify"
+      | "character"
     >(null),
     [now, setNow] = useState(new Date()),
     [toast, setToast] = useState(""),
@@ -275,6 +313,10 @@ export default function Saff() {
     // First landing: check whether to offer notifications before other prompts.
     [notifyStep, setNotifyStep] = useState<"checking" | "offer" | "done">(
       "checking",
+    ),
+    // Then, once, accounts that have not chosen a character are asked to.
+    [characterStep, setCharacterStep] = useState<"checking" | "offer" | "done">(
+      "checking",
     );
   const invitePrompted = useRef(false);
   useEffect(() => {
@@ -282,6 +324,7 @@ export default function Saff() {
     setNudged({});
     setCircleId("");
     setNotifyStep("checking");
+    setCharacterStep("checking");
   }, [userId]);
   useEffect(() => {
     if (notifyStep !== "checking" || !ready || !userId || welcome) return;
@@ -309,6 +352,21 @@ export default function Saff() {
   useEffect(() => {
     if (notifyStep === "offer" && !sheet) setSheet("notify");
   }, [notifyStep, sheet]);
+  useEffect(() => {
+    if (characterStep !== "checking" || notifyStep !== "done" || !userId)
+      return;
+    // New accounts choose during setup, so only finished setups are asked.
+    setCharacterStep(
+      settings.onboarded &&
+        !settings.gender &&
+        !wasAsked(CHARACTER_ASKED_KEY, userId)
+        ? "offer"
+        : "done",
+    );
+  }, [characterStep, notifyStep, userId, settings.onboarded, settings.gender]);
+  useEffect(() => {
+    if (characterStep === "offer" && !sheet) setSheet("character");
+  }, [characterStep, sheet]);
   useEffect(() => {
     if (!welcome) setSheet((current) => (current === "auth" ? null : current));
   }, [welcome]);
@@ -348,7 +406,7 @@ export default function Saff() {
       return;
     }
     if (welcome || (!settings.onboarded && !skippedSetup)) return;
-    if (notifyStep !== "done") return;
+    if (characterStep !== "done") return;
     forgetInvite();
     setInvited("");
     setFormValue(invited);
@@ -361,12 +419,12 @@ export default function Saff() {
     welcome,
     settings.onboarded,
     skippedSetup,
-    notifyStep,
+    characterStep,
   ]);
   useEffect(() => {
     if (!ready || !intent || sheet || !userId || welcome) return;
     if (!settings.onboarded && !skippedSetup) return;
-    if (notifyStep !== "done") return;
+    if (characterStep !== "done") return;
     setIntent(null);
     // A pending invite link already opens the join sheet with its code.
     if (!invited) open(intent);
@@ -379,7 +437,7 @@ export default function Saff() {
     settings.onboarded,
     skippedSetup,
     invited,
-    notifyStep,
+    characterStep,
   ]);
   const today = dateKey(now, settings.timezone);
   const times = useMemo(() => prayerTimes(settings, today), [settings, today]);
@@ -510,6 +568,11 @@ export default function Saff() {
       options: { emailRedirectTo: window.location.origin },
     });
     if (error) throw error;
+  }
+  function finishCharacter() {
+    if (userId) rememberAsked(CHARACTER_ASKED_KEY, userId);
+    setCharacterStep("done");
+    setSheet(null);
   }
   function finishNotify() {
     if (userId) rememberAsked(NOTIFY_ASKED_KEY, userId);
@@ -904,8 +967,8 @@ export default function Saff() {
       : "A little encouragement, together",
     avatars: (circle?.members.slice(0, 4) || [])
       .map((m, i) => ({
-        initials: m.name.slice(0, m.name === settings.name ? 1 : 2),
-        bg: avatarColors[i][0],
+        initials: "",
+        bg: characterBackground(m.gender, avatarColors[i][0]),
         fg: avatarColors[i][1],
         z: 4 - i,
         margin: i ? -8 : 0,
@@ -975,8 +1038,8 @@ export default function Saff() {
         );
       return {
         name: m.name,
-        init: m.name.slice(0, m.id === userId ? 1 : 2),
-        bg: avatarColors[i % 6][0],
+        init: "",
+        bg: characterBackground(m.gender, avatarColors[i % 6][0]),
         fg: avatarColors[i % 6][1],
         isYou: m.id === userId,
         streak: streak(m.records, day),
@@ -1331,7 +1394,11 @@ export default function Saff() {
               <small>Your journey, one prayer at a time.</small>
             </div>
             <button className="profile" onClick={() => open("settings")}>
-              <span className="avatar gold">{settings.name.slice(0, 1)}</span>
+              <img
+                className="avatar gold"
+                src={characterArt(settings.gender)}
+                alt=""
+              />
               <span>
                 <strong>{settings.name}</strong>
                 <small>Your personal space</small>
@@ -1454,11 +1521,13 @@ export default function Saff() {
                 onboarding: "Let’s set up your space",
                 delete: "Delete your account",
                 notify: "Never miss a prayer",
+                character: "Choose your character",
               }[sheet]
             }
             close={() => {
               if (sheet === "onboarding") setSkippedSetup(true);
               if (sheet === "notify") return finishNotify();
+              if (sheet === "character") return finishCharacter();
               setSheet(null);
             }}
           >
@@ -1620,6 +1689,8 @@ export default function Saff() {
                 onSubmit={(e) => {
                   e.preventDefault();
                   run(async () => {
+                    if (!draft.gender)
+                      throw new Error("Choose male or female.");
                     await app.saveSettings({ ...draft, onboarded: true });
                     setSheet(null);
                     notify("Assalamu alaikum, " + draft.name.trim() + ".");
@@ -1627,8 +1698,8 @@ export default function Saff() {
                 }}
               >
                 <p className="muted">
-                  Your circles will see this name beside your prayers. Your
-                  location only sets your prayer times.
+                  Your circles will see your name and character beside your
+                  prayers. Your location only sets your prayer times.
                 </p>
                 <label>
                   Your name
@@ -1644,6 +1715,13 @@ export default function Saff() {
                     }
                   />
                 </label>
+                <div className="section-title">
+                  <h3>You are</h3>
+                </div>
+                <CharacterChoice
+                  value={draft.gender}
+                  choose={(gender) => setDraft((d) => ({ ...d, gender }))}
+                />
                 <div className="section-title">
                   <h3>Where do you pray?</h3>
                 </div>
@@ -1732,6 +1810,13 @@ export default function Saff() {
                     }
                   />
                 </label>
+                <div className="section-title">
+                  <h3>You are</h3>
+                </div>
+                <CharacterChoice
+                  value={draft.gender}
+                  choose={(gender) => setDraft((d) => ({ ...d, gender }))}
+                />
                 <div className="form-grid">
                   <label>
                     Calculation method
@@ -2095,6 +2180,32 @@ export default function Saff() {
                   className="text-button full"
                   disabled={pending}
                   onClick={finishNotify}
+                >
+                  Not now
+                </button>
+              </>
+            )}
+            {sheet === "character" && (
+              <>
+                <p className="muted">
+                  Your circle sees your character beside your prayers, in place
+                  of your initials.
+                </p>
+                <CharacterChoice
+                  value={settings.gender}
+                  disabled={pending}
+                  choose={(gender) =>
+                    run(async () => {
+                      await app.saveSettings({ ...settings, gender });
+                      finishCharacter();
+                      notify("Your character is saved.");
+                    })
+                  }
+                />
+                <button
+                  className="text-button full"
+                  disabled={pending}
+                  onClick={finishCharacter}
                 >
                   Not now
                 </button>

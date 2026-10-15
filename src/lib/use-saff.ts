@@ -177,7 +177,14 @@ export function useSaff() {
       cs.map((c) => ({
         ...c,
         members: c.members.map((m) =>
-          m.id === userId ? { ...m, name: next.name, nudges: next.nudges } : m,
+          m.id === userId
+            ? {
+                ...m,
+                name: next.name,
+                nudges: next.nudges,
+                gender: next.gender,
+              }
+            : m,
         ),
       })),
     );

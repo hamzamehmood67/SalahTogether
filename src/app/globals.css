@@ -892,6 +892,42 @@ small {
   border-radius: 50%;
   background: var(--gold);
 }
+/* Male / female choice: each option shows its character. */
+.character-choice {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 12px 0 4px;
+}
+.character-choice button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 10px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 13px;
+  font-weight: 800;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
+}
+.character-choice button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+.character-choice button[aria-checked="true"] {
+  border-color: var(--gold);
+  background: rgba(245, 185, 66, 0.12);
+  color: var(--gold);
+}
+.character-choice img {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #262b5c;
+}
 .circle-role {
   margin: -4px 0 6px;
   font-size: 11px;
