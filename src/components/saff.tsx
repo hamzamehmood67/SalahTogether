@@ -208,18 +208,18 @@ function forgetInvite() {
     /* Nothing to forget. */
   }
 }
-// The first-landing notification prompt is offered once per account on each device.
+// First-landing offers are made once per account on each device.
 const NOTIFY_ASKED_KEY = "saff-notify-asked:";
-function notifyAsked(user: string) {
+function wasAsked(key: string, user: string) {
   try {
-    return !!localStorage.getItem(NOTIFY_ASKED_KEY + user);
+    return !!localStorage.getItem(key + user);
   } catch {
     return true; // Without storage it could not be remembered, so never nag.
   }
 }
-function rememberNotifyAsked(user: string) {
+function rememberAsked(key: string, user: string) {
   try {
-    localStorage.setItem(NOTIFY_ASKED_KEY + user, "1");
+    localStorage.setItem(key + user, "1");
   } catch {
     /* Nothing to remember it in. */
   }
@@ -290,7 +290,7 @@ export default function Saff() {
     if (
       !supabase ||
       !process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
-      notifyAsked(userId)
+      wasAsked(NOTIFY_ASKED_KEY, userId)
     ) {
       setNotifyStep("done");
       return;
@@ -512,7 +512,7 @@ export default function Saff() {
     if (error) throw error;
   }
   function finishNotify() {
-    if (userId) rememberNotifyAsked(userId);
+    if (userId) rememberAsked(NOTIFY_ASKED_KEY, userId);
     setNotifyStep("done");
     setSheet(null);
   }
