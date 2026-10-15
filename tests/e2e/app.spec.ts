@@ -38,8 +38,13 @@ test("mobile navigation, real history updates, and persistent preferences", asyn
   await page.getByRole("button", { name: "Lahore, PK" }).click();
   await page.getByRole("button", { name: "Calculation settings" }).click();
   await page.getByLabel("Your name").fill("Amina");
+  await expect(
+    page.getByRole("radio", { name: "Male", exact: true }),
+  ).toBeChecked();
+  await page.getByRole("radio", { name: "Female" }).click();
   await page.getByRole("button", { name: "Save preferences" }).click();
   await expect(page.getByRole("heading", { name: "Amina" })).toBeVisible();
+  expect(state.settings.gender).toBe("female");
   await page.reload();
   await expect(page.getByRole("heading", { name: "Amina" })).toBeVisible();
 });
@@ -49,6 +54,13 @@ test("create circle with disclosure and edit goal", async ({ page }) => {
     .getByRole("button", { name: "Circles" })
     .click();
   await page.getByRole("button", { name: /^The Rahman Family/ }).click();
+  // Each member row shows that member's character, not their initials.
+  await expect(
+    page.locator('.reference-circle span[style*="avatars/female.svg"]'),
+  ).toHaveCount(1);
+  await expect(
+    page.locator('.reference-circle span[style*="avatars/male.svg"]'),
+  ).toHaveCount(1);
   await page.getByRole("button", { name: "View Ammi progress" }).click();
   await expect(
     page.getByRole("heading", { name: "Ammi’s journey" }),

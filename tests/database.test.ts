@@ -312,3 +312,31 @@ it("lets only the circle admin decide who can share the invite code", async () =
     db.query("select public.reset_circle_code($1)", [id]),
   ).rejects.toThrow(/permission/);
 });
+it("shares each member's chosen character with their circle", async () => {
+  const girl = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    boy = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  await db.exec(
+    `reset role;insert into auth.users(id) values('${girl}'),('${boy}');`,
+  );
+  await asUser(girl);
+  const settings = { ...DEFAULT_SETTINGS, name: "Amina", onboarded: true };
+  for (const gender of ["other", null])
+    await expect(
+      db.query("select public.save_settings($1)", [{ ...settings, gender }]),
+    ).rejects.toThrow(/male or female/);
+  await db.query("select public.save_settings($1)", [
+    { ...settings, gender: "female" },
+  ]);
+  await db.query("select public.create_circle('Sisters')");
+  const code = (await db.query<{ d: any }>("select public.get_dashboard() d"))
+    .rows[0].d.circles[0].code;
+  await asUser(boy);
+  await db.query("select public.join_circle($1)", [code]);
+  const members = (
+    await db.query<{ d: any }>("select public.get_dashboard() d")
+  ).rows[0].d.circles[0].members;
+  // Someone who has not chosen yet has no character; the app shows the neutral one.
+  expect(Object.fromEntries(members.map((m: any) => [m.id, m.gender]))).toEqual(
+    { [girl]: "female", [boy]: null },
+  );
+});
