@@ -109,6 +109,10 @@ export function shiftDate(key: string, n: number) {
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 }
+// The Monday that starts the week containing this date key.
+export function weekStart(key: string) {
+  return shiftDate(key, -((new Date(key + "T12:00:00Z").getUTCDay() + 6) % 7));
+}
 export function countDay(records: RecordItem[], day: string) {
   return new Set(records.filter((r) => r.date === day).map((r) => r.prayer))
     .size;
