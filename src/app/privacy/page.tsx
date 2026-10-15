@@ -90,7 +90,7 @@ export default function Privacy() {
           Turn reminders, nudges, or notifications on a particular device on or
           off in Settings.
         </li>
-        <li>Leave any circle from Manage circles.</li>
+        <li>Leave any circle from its settings (the ⋯ on Circles).</li>
         <li>
           Delete your account from Settings → Delete account. See{" "}
           <a href="/delete-account">how account deletion works</a>.
