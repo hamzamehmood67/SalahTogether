@@ -864,67 +864,209 @@ small {
 .empty-card .primary {
   margin: auto;
 }
-.circle-tabs {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 20px;
-}
-.circle-tabs button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 52px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 10px 14px;
-  text-align: left;
-  color: var(--muted);
-}
-.circle-tabs button span {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-.circle-tabs strong {
-  font-size: 12px;
-  color: var(--cream);
-  overflow-wrap: anywhere;
-}
-.circle-tabs small {
-  font-size: 10px;
-}
-.circle-tabs .selected {
-  background: #f5b94210;
-  border-color: #f5b94240;
-  color: var(--gold);
-}
-.circle-tabs .selected strong {
-  color: var(--gold);
+.circle-role {
+  margin: -4px 0 6px;
+  font-size: 11px;
 }
 .circle-note {
   margin: 14px 0 4px;
   font-size: 11px;
   text-align: center;
 }
-.circle-switch-row {
+/* Circles tab: every circle, inside the reference frame (see circles-page.tsx). */
+.circles-page {
+  position: relative;
+  background: var(--navy);
+  color: var(--cream);
+  font-family: Manrope, "Avenir Next", system-ui, sans-serif;
+}
+.circles-glow {
+  position: absolute;
+  top: -170px;
+  right: -140px;
+  width: 440px;
+  height: 440px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(245, 185, 66, 0.16),
+    rgba(245, 185, 66, 0) 65%
+  );
+  pointer-events: none;
+}
+.circles-content {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 4px;
-  max-width: 100%;
+  flex-direction: column;
+  gap: 16px;
+  padding: 36px 20px 0;
 }
-.circle-switch-name {
-  min-width: 0;
+.circles-header h1 {
+  margin: 0;
+  font-family: Bricolage, Manrope, sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.circles-header p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.circles-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.circle-card {
+  display: flex;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.06);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
-.circle-switch {
+.circle-card-main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 18px 4px 18px 18px;
+  text-align: left;
+  color: inherit;
+}
+.circle-card-icon {
+  display: grid;
   flex: none;
-  opacity: 0.65;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 15px;
+  background: #f5b9421a;
+  color: var(--gold);
+}
+.circle-card-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.circle-card-text strong {
+  font-family: Bricolage, Manrope, sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.circle-card-text small {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.circle-card-progress {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.circle-card-bar {
+  height: 6px;
+  margin-top: 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.circle-card-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ffd36b, #f5b942);
+}
+.circle-card-more {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 52px;
+  color: var(--muted);
+}
+.circle-card-more:hover {
+  color: var(--cream);
+}
+.circles-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 20px;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.04);
+  text-align: center;
+}
+.circles-empty strong {
+  font-family: Bricolage, Manrope, sans-serif;
+  font-size: 18px;
+}
+.circles-empty p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.circles-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+.circles-actions .primary,
+.circles-actions .secondary {
+  min-height: 54px;
+  border-radius: 18px;
+  font-size: 15px;
+}
+.circles-nav {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  height: 80px;
+  box-sizing: border-box;
+  padding: 8px 12px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(13, 17, 48, 0.9);
+  backdrop-filter: blur(14px);
+  z-index: 10;
+}
+.circles-nav .tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 52px;
+  border-radius: 14px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.circles-nav .tab:hover {
+  color: var(--cream);
+}
+.circles-nav .tab.on {
+  color: var(--gold);
+}
+@media (min-width: 1024px) {
+  .circles-list {
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  }
+  .circles-actions {
+    grid-template-columns: repeat(2, minmax(0, 240px));
+  }
 }
 .circle-layout {
   display: grid;
@@ -2307,14 +2449,6 @@ small {
   }
   .circle-layout aside .privacy-note {
     margin-top: 14px;
-  }
-  .circle-tabs {
-    gap: 6px;
-    margin: 7px 0 18px;
-  }
-  .circle-tabs button {
-    padding: 9px 12px;
-    min-height: 48px;
   }
   .circle-heading {
     margin-top: 0;

@@ -55,6 +55,7 @@ import { supabase } from "@/lib/supabase";
 import { PushState, pushState, enablePush, disablePush } from "@/lib/push";
 import TodayReference from "./reference/today";
 import CircleReference from "./reference/circle";
+import CirclesPage from "./circles-page";
 import InsightsReference from "./reference/insights";
 import MilestonesReference from "./reference/milestones";
 import WelcomeReference from "./reference/welcome";
@@ -220,7 +221,7 @@ export default function Saff() {
       | "goal"
       | "auth"
       | "member"
-      | "circles"
+      | "circle"
       | "onboarding"
       | "delete"
     >(null),
@@ -248,7 +249,9 @@ export default function Saff() {
     // Which welcome button was tapped before sign-in: carried through setup.
     [intent, setIntent] = useState<"create" | "join" | null>(null),
     // Shown while the member-invite switch is saving; null shows the saved value.
-    [invitesSaving, setInvitesSaving] = useState<boolean | null>(null);
+    [invitesSaving, setInvitesSaving] = useState<boolean | null>(null),
+    // The Circles tab lists every circle; "detail" shows the selected one.
+    [circleView, setCircleView] = useState<"list" | "detail">("list");
   const invitePrompted = useRef(false);
   useEffect(() => {
     setSheet(null);
@@ -441,6 +444,7 @@ export default function Saff() {
   }
   function navigate(next: Tab) {
     setTab(next);
+    if (next === "circles") setCircleView("list");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   async function sendCode() {
@@ -776,15 +780,7 @@ export default function Saff() {
           }),
       };
     }),
-    // The chevron shows the name opens Your circles (switch, create, join).
-    circleName: (
-      <span className="circle-switch-row">
-        <span className="circle-switch-name">
-          {circle?.name || "Start your circle"}
-        </span>
-        <ChevronDown className="circle-switch" size={18} aria-hidden="true" />
-      </span>
-    ),
+    circleName: circle?.name || "Start your circle",
     circleSummary: circle
       ? circle.members.filter((m) =>
           m.records.some(
@@ -828,7 +824,8 @@ export default function Saff() {
     circleSubtitle: circle
       ? circle.members.length + " members · " + currentName + " time now"
       : "Create a circle or join with an invite",
-    manageCircles: () => open("circles"),
+    manageCircles: () => open("circle"),
+    goBack: () => setCircleView("list"),
     invite: () => (circle ? invite() : open("create")),
     keptToday:
       circle?.members.reduce(
@@ -1237,8 +1234,37 @@ export default function Saff() {
           <WelcomeReference v={referenceValues} />
         ) : tab === "today" ? (
           <TodayReference v={referenceValues} />
-        ) : tab === "circles" ? (
+        ) : tab === "circles" && circleView === "detail" && circle ? (
           <CircleReference v={referenceValues} />
+        ) : tab === "circles" ? (
+          <CirclesPage
+            circles={circles.map((c) => ({
+              id: c.id,
+              name: c.name,
+              admin: c.owner === userId,
+              members: c.members.length,
+              // Same counts as the circle screen's "kept together" summary.
+              kept: c.members.reduce(
+                (sum, m) => sum + countDay(m.records, m.localDate || today),
+                0,
+              ),
+              due: c.members.length * Math.max(0, currentIndex + 1),
+            }))}
+            openCircle={(id) => {
+              setCircleId(id);
+              setCircleView("detail");
+              window.scrollTo({ top: 0 });
+            }}
+            openSettings={(id) => {
+              setCircleId(id);
+              open("circle");
+            }}
+            create={() => open("create")}
+            join={() => open("join")}
+            goToday={() => navigate("today")}
+            goInsights={() => navigate("insights")}
+            goMilestones={() => navigate("milestones")}
+          />
         ) : tab === "insights" ? (
           <InsightsReference v={referenceValues} />
         ) : (
@@ -1257,21 +1283,25 @@ export default function Saff() {
         )}
       </main>
       <AnimatePresence>
-        {toast && (sheet || tab === "insights" || welcome) && (
-          <motion.div
-            className={"toast" + (sheet ? " over-sheet" : "")}
-            role="status"
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 10, opacity: 0 }}
-          >
-            <Art id="icoCoin" size={29} />
-            <span>{toast}</span>
-            <button onClick={() => setToast("")} aria-label="Dismiss">
-              <X size={16} />
-            </button>
-          </motion.div>
-        )}
+        {toast &&
+          (sheet ||
+            tab === "insights" ||
+            welcome ||
+            (tab === "circles" && !(circleView === "detail" && circle))) && (
+            <motion.div
+              className={"toast" + (sheet ? " over-sheet" : "")}
+              role="status"
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 10, opacity: 0 }}
+            >
+              <Art id="icoCoin" size={29} />
+              <span>{toast}</span>
+              <button onClick={() => setToast("")} aria-label="Dismiss">
+                <X size={16} />
+              </button>
+            </motion.div>
+          )}
       </AnimatePresence>
       <AnimatePresence>
         {sheet && sheet !== "location" && (
@@ -1286,7 +1316,7 @@ export default function Saff() {
                 goal: "A shared intention",
                 auth: "Welcome to Saff",
                 member: (viewedMember?.name || "Member") + "’s journey",
-                circles: "Your circles",
+                circle: circle?.name || "Circle",
                 onboarding: "Let’s set up your space",
                 delete: "Delete your account",
               }[sheet]
@@ -1296,56 +1326,27 @@ export default function Saff() {
               setSheet(null);
             }}
           >
-            {sheet === "circles" && (
+            {sheet === "circle" && circle && (
               <>
-                {circles.length > 0 && (
-                  <div className="circle-tabs">
-                    {circles.map((c) => (
-                      <button
-                        key={c.id}
-                        className={circle?.id === c.id ? "selected" : ""}
-                        aria-current={circle?.id === c.id ? "true" : undefined}
-                        onClick={() => {
-                          setCircleId(c.id);
-                          setSheet(null);
-                        }}
-                      >
-                        <Users size={15} />
-                        <span>
-                          <strong>{c.name}</strong>
-                          <small>
-                            {c.owner === userId ? "Admin" : "Member"} ·{" "}
-                            {c.members.length}{" "}
-                            {c.members.length === 1 ? "member" : "members"}
-                          </small>
-                        </span>
-                        {circle?.id === c.id && <Check size={15} />}
-                      </button>
-                    ))}
-                  </div>
+                <p className="muted circle-role">
+                  {circle.owner === userId ? "Admin" : "Member"} ·{" "}
+                  {circle.members.length}{" "}
+                  {circle.members.length === 1 ? "member" : "members"}
+                </p>
+                {circle.code ? (
+                  <button
+                    className="text-button full"
+                    onClick={() => open("invite")}
+                  >
+                    <Share2 size={16} />
+                    Invite to {circle.name}
+                  </button>
+                ) : (
+                  <p className="muted circle-note">
+                    Only the admin can invite people to {circle.name}.
+                  </p>
                 )}
-                <button className="primary full" onClick={() => open("create")}>
-                  <Plus size={17} />
-                  {circles.length ? "Create another circle" : "Create circle"}
-                </button>
-                <button className="secondary full" onClick={() => open("join")}>
-                  {circles.length ? "Join another circle" : "Join a circle"}
-                </button>
-                {circle &&
-                  (circle.code ? (
-                    <button
-                      className="text-button full"
-                      onClick={() => open("invite")}
-                    >
-                      <Share2 size={16} />
-                      Invite to {circle.name}
-                    </button>
-                  ) : (
-                    <p className="muted circle-note">
-                      Only the admin can invite people to {circle.name}.
-                    </p>
-                  ))}
-                {circle?.owner === userId && (
+                {circle.owner === userId && (
                   <>
                     <label className="toggle-label">
                       <span>
@@ -1406,21 +1407,20 @@ export default function Saff() {
                     </button>
                   </>
                 )}
-                {circle && (
-                  <button
-                    className="text-button danger full"
-                    onClick={() =>
-                      run(async () => {
-                        await app.leaveCircle(circle.id);
-                        setSheet(null);
-                        notify("You left the circle.");
-                      })
-                    }
-                  >
-                    <LogOut size={16} />
-                    Leave {circle.name}
-                  </button>
-                )}
+                <button
+                  className="text-button danger full"
+                  onClick={() =>
+                    run(async () => {
+                      await app.leaveCircle(circle.id);
+                      setSheet(null);
+                      setCircleView("list");
+                      notify("You left the circle.");
+                    })
+                  }
+                >
+                  <LogOut size={16} />
+                  Leave {circle.name}
+                </button>
               </>
             )}
             {sheet === "member" && viewedMember && (
@@ -1845,6 +1845,8 @@ export default function Saff() {
                     } else await app.joinCircle(formValue);
                     setSheet(null);
                     navigate("circles");
+                    // A new circle opens straight away so its admin can invite people.
+                    if (sheet === "create") setCircleView("detail");
                     notify(
                       sheet === "create"
                         ? "Your circle is ready. Make room for your people."

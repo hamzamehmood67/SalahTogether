@@ -48,6 +48,7 @@ test("create circle with disclosure and edit goal", async ({ page }) => {
     .getByRole("navigation", { name: "Mobile navigation" })
     .getByRole("button", { name: "Circles" })
     .click();
+  await page.getByRole("button", { name: /^The Rahman Family/ }).click();
   await page.getByRole("button", { name: "View Ammi progress" }).click();
   await expect(
     page.getByRole("heading", { name: "Ammi’s journey" }),
@@ -56,17 +57,18 @@ test("create circle with disclosure and edit goal", async ({ page }) => {
     page.getByRole("heading", { name: "Achievements" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Close", exact: true }).click();
-  await page.getByRole("button", { name: "Manage circles" }).click();
-  await page.getByRole("button", { name: "Create another circle" }).click();
+  await page.getByRole("button", { name: "Back to your circles" }).click();
+  await page.getByRole("button", { name: "Create a circle" }).click();
   await expect(page.getByText(/existing prayer history/)).toBeVisible();
   await page.getByLabel("Circle name").fill("Our little circle");
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Create circle" })
     .click();
-  await expect(
-    page.getByRole("button", { name: "Manage circles" }),
-  ).toBeVisible();
+  // The new circle opens straight away.
+  await expect(page.getByRole("button", { name: "Manage circles" })).toHaveText(
+    "Our little circle",
+  );
   await page.getByRole("button", { name: "Manage circles" }).click();
   await page.getByRole("button", { name: "Edit monthly circle goal" }).click();
   await page.getByLabel("Monthly prayer goal").fill("100");
@@ -98,6 +100,16 @@ test("all views fit phone widths and desktop", async ({ page }) => {
           ),
         )
         .toBe(true);
+      if (tab === "Circles") {
+        await page.getByRole("button", { name: /^The Rahman Family/ }).click();
+        await expect
+          .poll(() =>
+            page.evaluate(
+              () => document.documentElement.scrollWidth <= window.innerWidth,
+            ),
+          )
+          .toBe(true);
+      }
     }
   }
 });
@@ -109,7 +121,9 @@ test("invite links open a prefilled join sheet and owners can share one", async 
     .getByRole("navigation", { name: "Mobile navigation" })
     .getByRole("button", { name: "Circles" })
     .click();
-  await page.getByRole("button", { name: "Manage circles" }).click();
+  await page
+    .getByRole("button", { name: "Settings for The Rahman Family" })
+    .click();
   await page
     .getByRole("button", { name: "Invite to The Rahman Family" })
     .click();
@@ -152,15 +166,18 @@ test("deleting the account needs typed confirmation and signs out", async ({
 test("circle admins decide who invites and members see their role", async ({
   page,
 }) => {
-  await page
+  const circlesTab = page
     .getByRole("navigation", { name: "Mobile navigation" })
-    .getByRole("button", { name: "Circles" })
-    .click();
-  const manage = page.getByRole("button", { name: "Manage circles" });
-  const sheet = page.getByRole("dialog", { name: "Your circles" });
-  await manage.click();
-  await expect(sheet.getByText("Admin · 2 members")).toBeVisible();
-  const allow = sheet.getByLabel("Members can invite");
+    .getByRole("button", { name: "Circles" });
+  const settingsFor = (name: string) =>
+    page.getByRole("button", { name: "Settings for " + name });
+  await circlesTab.click();
+  await expect(
+    page.getByRole("button", { name: /^The Rahman Family/ }),
+  ).toContainText("Admin · 2 members");
+  await settingsFor("The Rahman Family").click();
+  const family = page.getByRole("dialog", { name: "The Rahman Family" });
+  const allow = family.getByLabel("Members can invite");
   await allow.check();
   await expect(page.getByRole("status")).toContainText(
     "Members can now invite",
@@ -172,9 +189,9 @@ test("circle admins decide who invites and members see their role", async ({
   );
   expect(state.circles[0].code).toBe("ROTATED1");
   page.once("dialog", (dialog) => dialog.accept());
-  await sheet.getByRole("button", { name: "Reset invite code" }).click();
+  await family.getByRole("button", { name: "Reset invite code" }).click();
   await expect(page.getByRole("status")).toContainText("New invite code ready");
-  await sheet
+  await family
     .getByRole("button", { name: "Invite to The Rahman Family" })
     .click();
   await expect(page.getByLabel("Invite link")).toHaveText(
@@ -182,38 +199,32 @@ test("circle admins decide who invites and members see their role", async ({
   );
   await page.getByRole("button", { name: "Close", exact: true }).click();
   // A second circle, joined as a member: invites stay with its admin until allowed.
-  await manage.click();
-  await sheet.getByRole("button", { name: "Join another circle" }).click();
+  await page.getByRole("button", { name: "Join with a code" }).click();
   const join = page.getByRole("dialog", { name: "Join your people" });
   await join.getByLabel("Invite code").fill("FRIENDS1");
   await join.getByRole("button", { name: "Join circle" }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "Welcome" }),
   ).toBeVisible();
-  const openFriends = async () => {
-    await manage.click();
-    await sheet.getByRole("button", { name: /Friends of the Masjid/ }).click();
-    await manage.click();
-  };
-  await openFriends();
-  await expect(sheet.getByText("Member · 2 members")).toBeVisible();
   await expect(
-    sheet.getByText(
+    page.getByRole("button", { name: /^Friends of the Masjid/ }),
+  ).toContainText("Member · 2 members");
+  await settingsFor("Friends of the Masjid").click();
+  const friends = page.getByRole("dialog", { name: "Friends of the Masjid" });
+  await expect(
+    friends.getByText(
       "Only the admin can invite people to Friends of the Masjid.",
     ),
   ).toBeVisible();
-  await expect(sheet.getByLabel("Members can invite")).toHaveCount(0);
+  await expect(friends.getByLabel("Members can invite")).toHaveCount(0);
   await expect(
-    sheet.getByRole("button", { name: "Reset invite code" }),
+    friends.getByRole("button", { name: "Reset invite code" }),
   ).toHaveCount(0);
   state.circles.find((c) => c.id === "friends")!.membersCanInvite = true;
   await page.reload();
+  await circlesTab.click();
+  await settingsFor("Friends of the Masjid").click();
   await page
-    .getByRole("navigation", { name: "Mobile navigation" })
-    .getByRole("button", { name: "Circles" })
-    .click();
-  await openFriends();
-  await sheet
     .getByRole("button", { name: "Invite to Friends of the Masjid" })
     .click();
   await expect(page.getByLabel("Invite link")).toHaveText(

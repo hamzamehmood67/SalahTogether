@@ -90,6 +90,8 @@ for name,entry in zip(['names','welcome','today','circle','insights','milestones
   if n.tag=='a' and '.dc.html' in n.attrs.get('href',''):
    dest={'Main.dc.html':'today','Circle.dc.html':'circles','Insights.dc.html':'insights','Milestones.dc.html':'milestones'}[n.attrs.pop('href')];n.tag='button';n.attrs['data-reference-link']='true';n.attrs['sc-camel-on-click']='{{go'+dest.title()+'}}'
    if name=='welcome':n.attrs['sc-camel-on-click']='{{startCircle}}' if dest=='today' else '{{joinCircle}}'
+   # Inside a circle the header arrow returns to the circles list; the tab bar's Today link stays Today.
+   if name=='circle' and dest=='today' and 'tab' not in n.attrs.get('class','').split():n.attrs['sc-camel-on-click']='{{goBack}}';n.attrs['aria-label']='Back to your circles'
   # Accessible headings preserve the original span geometry.
   text=''.join(x for x in n.children if isinstance(x,str)).strip()
   if text in ['Insights','Milestones','Assalamu alaikum, {{name}}','{{circleName}}'] and n.attrs.get('class')=='disp':n.attrs['role']='heading';n.attrs['aria-level']='1'
