@@ -866,25 +866,49 @@ small {
 }
 .circle-tabs {
   display: flex;
+  flex-direction: column;
   gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 25px;
+  margin-bottom: 20px;
 }
 .circle-tabs button {
   display: flex;
   align-items: center;
-  gap: 7px;
-  min-height: 40px;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 9px 13px;
-  font-size: 11px;
+  border-radius: 14px;
+  padding: 10px 14px;
+  text-align: left;
   color: var(--muted);
+}
+.circle-tabs button span {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.circle-tabs strong {
+  font-size: 12px;
+  color: var(--cream);
+  overflow-wrap: anywhere;
+}
+.circle-tabs small {
+  font-size: 10px;
 }
 .circle-tabs .selected {
   background: #f5b94210;
   border-color: #f5b94240;
   color: var(--gold);
+}
+.circle-tabs .selected strong {
+  color: var(--gold);
+}
+.circle-note {
+  margin: 14px 0 4px;
+  font-size: 11px;
+  text-align: center;
 }
 .circle-layout {
   display: grid;
@@ -2270,12 +2294,11 @@ small {
   }
   .circle-tabs {
     gap: 6px;
-    margin: 7px 0 23px;
+    margin: 7px 0 18px;
   }
   .circle-tabs button {
-    font-size: 10px;
-    padding: 8px 10px;
-    min-height: 38px;
+    padding: 9px 12px;
+    min-height: 48px;
   }
   .circle-heading {
     margin-top: 0;

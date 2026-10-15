@@ -30,6 +30,7 @@ import {
   CheckCheck,
   CalendarDays,
   ArrowLeft,
+  RotateCcw,
 } from "lucide-react";
 import { useSaff } from "@/lib/use-saff";
 import {
@@ -245,7 +246,9 @@ export default function Saff() {
     [codeSent, setCodeSent] = useState(false),
     [code, setCode] = useState(""),
     // Which welcome button was tapped before sign-in: carried through setup.
-    [intent, setIntent] = useState<"create" | "join" | null>(null);
+    [intent, setIntent] = useState<"create" | "join" | null>(null),
+    // Shown while the member-invite switch is saving; null shows the saved value.
+    [invitesSaving, setInvitesSaving] = useState<boolean | null>(null);
   const invitePrompted = useRef(false);
   useEffect(() => {
     setSheet(null);
@@ -1287,36 +1290,105 @@ export default function Saff() {
           >
             {sheet === "circles" && (
               <>
-                <div className="circle-tabs">
-                  {circles.map((c) => (
-                    <button
-                      key={c.id}
-                      className={circle?.id === c.id ? "selected" : ""}
-                      onClick={() => {
-                        setCircleId(c.id);
-                        setSheet(null);
-                      }}
-                    >
-                      <Users size={15} />
-                      {c.name}
-                    </button>
-                  ))}
-                </div>
+                {circles.length > 0 && (
+                  <div className="circle-tabs">
+                    {circles.map((c) => (
+                      <button
+                        key={c.id}
+                        className={circle?.id === c.id ? "selected" : ""}
+                        aria-current={circle?.id === c.id ? "true" : undefined}
+                        onClick={() => {
+                          setCircleId(c.id);
+                          setSheet(null);
+                        }}
+                      >
+                        <Users size={15} />
+                        <span>
+                          <strong>{c.name}</strong>
+                          <small>
+                            {c.owner === userId ? "Admin" : "Member"} ·{" "}
+                            {c.members.length}{" "}
+                            {c.members.length === 1 ? "member" : "members"}
+                          </small>
+                        </span>
+                        {circle?.id === c.id && <Check size={15} />}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <button className="primary full" onClick={() => open("create")}>
                   <Plus size={17} />
-                  Create circle
+                  {circles.length ? "Create another circle" : "Create circle"}
                 </button>
                 <button className="secondary full" onClick={() => open("join")}>
-                  Join a circle
+                  {circles.length ? "Join another circle" : "Join a circle"}
                 </button>
-                {circle?.owner === userId && (
-                  <>
+                {circle &&
+                  (circle.code ? (
                     <button
                       className="text-button full"
                       onClick={() => open("invite")}
                     >
                       <Share2 size={16} />
                       Invite to {circle.name}
+                    </button>
+                  ) : (
+                    <p className="muted circle-note">
+                      Only the admin can invite people to {circle.name}.
+                    </p>
+                  ))}
+                {circle?.owner === userId && (
+                  <>
+                    <label className="toggle-label">
+                      <span>
+                        <strong>Members can invite</strong>
+                        <small>
+                          Let everyone in {circle.name} share the invite link.
+                          Turning this off changes the code.
+                        </small>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={invitesSaving ?? !!circle.membersCanInvite}
+                        disabled={pending}
+                        onChange={(e) => {
+                          const allowed = e.target.checked;
+                          setInvitesSaving(allowed);
+                          run(async () => {
+                            try {
+                              await app.setMemberInvites(circle.id, allowed);
+                            } finally {
+                              setInvitesSaving(null);
+                            }
+                            notify(
+                              allowed
+                                ? "Members can now invite people."
+                                : "Only you can invite now. The invite code has changed.",
+                            );
+                          });
+                        }}
+                      />
+                    </label>
+                    <button
+                      className="text-button full"
+                      disabled={pending}
+                      onClick={() => {
+                        if (
+                          !window.confirm(
+                            `Reset the invite code for ${circle.name}? Links already shared will stop working.`,
+                          )
+                        )
+                          return;
+                        run(async () => {
+                          await app.resetInviteCode(circle.id);
+                          notify(
+                            "New invite code ready. Old links no longer work.",
+                          );
+                        });
+                      }}
+                    >
+                      <RotateCcw size={16} />
+                      Reset invite code
                     </button>
                     <button
                       className="text-button full"
@@ -1815,7 +1887,7 @@ export default function Saff() {
                   see each other’s prayer progress.
                 </p>
                 <div className="invite-code">
-                  {circle?.code || "Ask the circle owner for an invite code"}
+                  {circle?.code || "Only the circle admin can invite"}
                 </div>
                 {circle?.code && (
                   <>
