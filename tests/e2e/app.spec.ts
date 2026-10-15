@@ -48,6 +48,21 @@ test("mobile navigation, real history updates, and persistent preferences", asyn
   await page.reload();
   await expect(page.getByRole("heading", { name: "Amina" })).toBeVisible();
 });
+test("phones reach Settings from their character on Today", async ({
+  page,
+}) => {
+  const me = page.getByRole("button", { name: "Your account and settings" });
+  await expect(me.locator("span")).toHaveAttribute(
+    "style",
+    /avatars\/male\.svg/,
+  );
+  await me.click();
+  const sheet = page.getByRole("dialog", { name: "Your space" });
+  await expect(sheet.getByLabel("Your name")).toHaveValue("Yusuf");
+  await expect(
+    sheet.getByRole("radio", { name: "Male", exact: true }),
+  ).toBeChecked();
+});
 test("create circle with disclosure and edit goal", async ({ page }) => {
   await page
     .getByRole("navigation", { name: "Mobile navigation" })

@@ -725,6 +725,16 @@ export default function TodayReference({ v }: { v: ReferenceValues }) {
             >
               {v.hijriDate}
             </span>
+            <button
+              className={"me"}
+              onClick={v.settings}
+              aria-label={"Your account and settings"}
+            >
+              <span
+                aria-hidden={"true"}
+                style={{ background: v.me } as CSSProperties}
+              />
+            </button>
           </div>
         </div>
         <div

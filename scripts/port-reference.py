@@ -113,6 +113,9 @@ for name,entry in zip(['names','welcome','today','circle','insights','milestones
   avatar_row=next(n for n in strip.children if isinstance(n,Node) and n.tag=='span')
   original=[n for n in avatar_row.children if isinstance(n,Node)][0]
   original.attrs['class']='{{a.cls}}';original.attrs['style']=original.attrs['style'].replace('background: #F5B942','background: {{a.bg}}').replace('color: #1A1400','color: {{a.fg}}').replace('z-index: 4','z-index: {{a.z}}')+'; margin-left: {{a.margin}}px';original.children=['{{a.initials}}'];loop=Node('sc-for',[('list','{{avatars}}'),('as','a')]);loop.children=[original];avatar_row.children=[loop]
+  # Phones have no Settings tab: the person's own character, at the end of the location row, opens Settings.
+  header_rows=[c for c in next(n for n in walk(root) if n.attrs.get('data-section')=='0').children if isinstance(c,Node)]
+  me=Node('button',[('class','me'),('sc-camel-on-click','{{settings}}'),('aria-label','Your account and settings')]);face=Node('span',[('aria-hidden','true'),('style','background: {{me}}')]);me.children=[face];header_rows[1].children.append(me)
  header='"use client";\n// Faithful React port of the supplied Saff '+name+' screen.\nimport { Fragment, type CSSProperties } from "react";\nimport type { ReferenceValues } from "./types";\n'
  component='export default function '+name.title()+'Reference({v}:{v:ReferenceValues}) { return ('+render(root)+'); }\n'
  (ROOT/'src/components/reference'/(name+'.tsx')).write_text(header+component)

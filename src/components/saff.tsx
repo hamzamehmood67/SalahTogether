@@ -789,6 +789,7 @@ export default function Saff() {
   const firstWeek = weekStart(firstYearKey + "-01");
   const referenceValues: ReferenceValues = {
     name: settings.name,
+    me: characterBackground(settings.gender, "#F5B942"),
     toast: sheet ? null : toast,
     goToday: () => navigate("today"),
     goCircles: () => navigate("circles"),
