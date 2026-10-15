@@ -63,7 +63,7 @@ For the Play Store listing, use `https://YOUR_DOMAIN/privacy` as the privacy pol
 
 ## Push and background reminders
 
-Generate a VAPID pair using `npx web-push generate-vapid-keys`. Set `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `SUPABASE_SERVICE_ROLE_KEY`, and a random `CRON_SECRET` in the web host. Use an HTTPS origin in production. Open settings, enable device notifications, choose prayers, and save reminder preferences.
+Generate a VAPID pair using `npx web-push generate-vapid-keys`. Set `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `SUPABASE_SERVICE_ROLE_KEY`, and a random `CRON_SECRET` in the web host. Use an HTTPS origin in production. After first-run setup, each account is offered notifications once per device; accepting registers the device and turns on reminders for all five prayers and gentle nudges. They can be changed later in Settings (device notifications, prayers, reminder offset, nudges).
 
 Invoke `GET /api/jobs/reminders` every minute with `Authorization: Bearer <CRON_SECRET>`. Use Supabase Cron with pg_net, keeping the URL and secret in Supabase Vault; do not commit real values:
 
