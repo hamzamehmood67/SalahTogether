@@ -1096,6 +1096,31 @@ small {
     grid-template-columns: repeat(2, minmax(0, 240px));
   }
 }
+/* Insights: the Week / Month switch in place of the design's "12-month record" pill (see port-reference.py). */
+.reference-insights .period {
+  gap: 2px;
+  padding: 3px !important; /* the pill's inline padding was sized for a label */
+}
+.reference-insights .period button {
+  height: 100%;
+  padding: 0 11px;
+  border-radius: 13px;
+  color: var(--muted);
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+.reference-insights .period button:hover {
+  color: var(--cream);
+}
+.reference-insights .period button[aria-pressed="true"] {
+  background: rgba(63, 209, 168, 0.22);
+  color: #7cf2c6;
+}
+/* Seven full-width bars would merge into one block; keep gaps between days. */
+.reference-insights .bar.wk span {
+  max-width: 28px;
+}
 .circle-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(240px, 1fr);

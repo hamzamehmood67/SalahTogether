@@ -99,6 +99,11 @@ for name,entry in zip(['names','welcome','today','circle','insights','milestones
   if name=='circle' and text=='{{circleName}}':n.tag='button';n.attrs['sc-camel-on-click']='{{manageCircles}}';n.attrs['aria-label']='Manage circles';n.attrs['style']+='; text-align: left';n.attrs.pop('role',None);n.attrs.pop('aria-level',None)
   if name=='circle' and text=='{{m.name}}':n.tag='button';n.attrs['sc-camel-on-click']='{{m.inspect}}';n.attrs['aria-label']='View {{m.name}} progress'
   if name=='insights' and n.tag=='svg' and n.attrs.get('class')=='{{ic.cls}}':n.attrs['role']='button';n.attrs['tabindex']='0';n.attrs['sc-camel-on-click']='{{ic.toggle}}';n.attrs['sc-camel-on-key-down']='{{ic.onKeyDown}}'
+  # Insights opens on a week: the design's "12-month record" pill becomes the Week / Month switch, and the arrows name the period they move by.
+  if name=='insights' and text=='12-month record':
+   n.tag='div';n.attrs['class']='period';n.attrs['role']='group';n.attrs['aria-label']='Period'
+   option=Node('button',[('sc-camel-on-click','{{p.pick}}'),('aria-pressed','{{p.sel}}')]);option.children=['{{p.label}}'];loop=Node('sc-for',[('list','{{periods}}'),('as','p')]);loop.children=[option];n.children=[loop]
+  if name=='insights' and n.attrs.get('aria-label') in ['Previous month','Next month']:n.attrs['aria-label']='{{'+n.attrs['aria-label'].split()[0].lower()+'Label}}'
   # Settings stay accessible via the location sheet without changing its visual composition.
   if name=='today' and text=='Method: {{city.method}}':n.tag='button';n.attrs['sc-camel-on-click']='{{settings}}';n.attrs['aria-label']='Calculation settings'
   if name=='milestones' and text=='{{sel.name}}':n.attrs['role']='heading';n.attrs['aria-level']='2'
