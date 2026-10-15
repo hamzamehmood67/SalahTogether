@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { mockSupabase } from "./supabase-fixture";
 
 test("old demo data is discarded and visitors must sign in", async ({
@@ -182,4 +182,87 @@ test("privacy and account deletion pages are public and fit a phone", async ({
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
+});
+
+// Headless Chrome cannot reach a push service, so these stub the browser's side.
+async function fakeNotifications(page: Page, permission: "granted" | "denied") {
+  await page.addInitScript((answer) => {
+    Object.defineProperty(Notification, "permission", { get: () => "default" });
+    Object.defineProperty(Notification, "requestPermission", {
+      value: async () => answer,
+    });
+    const subscription = {
+      endpoint: "https://push.example.test/device",
+      toJSON: () => ({
+        endpoint: "https://push.example.test/device",
+        keys: { p256dh: "test", auth: "test" },
+      }),
+    };
+    Object.defineProperty(navigator.serviceWorker, "ready", {
+      get: () =>
+        Promise.resolve({
+          pushManager: {
+            getSubscription: async () => null,
+            subscribe: async () => subscription,
+          },
+        }),
+    });
+  }, permission);
+}
+
+test("first landing asks once to turn on notifications", async ({ page }) => {
+  await fakeNotifications(page, "granted");
+  const state = await mockSupabase(page, { notifyPrompt: true });
+  await page.goto("/");
+  const prompt = page.getByRole("dialog", { name: "Never miss a prayer" });
+  await expect(prompt).toContainText("Lahore");
+  await prompt.getByRole("button", { name: "Turn on notifications" }).click();
+  await expect(prompt).toHaveCount(0);
+  await expect(page.getByRole("status")).toContainText("Reminders are on");
+  expect(state.pushRegistered).toBe(true);
+  expect(state.settings).toMatchObject({ reminders: true, nudges: true });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Yusuf" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("a declined permission or Not now ends the prompt for this device", async ({
+  page,
+}) => {
+  await fakeNotifications(page, "denied");
+  const state = await mockSupabase(page, { notifyPrompt: true });
+  await page.goto("/");
+  const prompt = page.getByRole("dialog", { name: "Never miss a prayer" });
+  await prompt.getByRole("button", { name: "Turn on notifications" }).click();
+  await expect(prompt).toHaveCount(0);
+  await expect(page.getByRole("status")).toContainText("not enabled");
+  expect(state.settings).toMatchObject({ reminders: false, nudges: false });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Yusuf" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("new users see the notification prompt after setup, then their chosen step", async ({
+  page,
+}) => {
+  await fakeNotifications(page, "granted");
+  await mockSupabase(page, {
+    signedIn: false,
+    populated: false,
+    notifyPrompt: true,
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Start a circle" }).click();
+  await page.getByLabel("Email address").fill("amina@example.com");
+  await page.getByRole("button", { name: "Email me a sign-in code" }).click();
+  await page.getByLabel("Sign-in code").fill("123456");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  const setup = page.getByRole("dialog", { name: "Let’s set up your space" });
+  await setup.getByLabel("Your name").fill("Amina");
+  await setup.getByRole("button", { name: "Start my journey" }).click();
+  const prompt = page.getByRole("dialog", { name: "Never miss a prayer" });
+  await prompt.getByRole("button", { name: "Not now" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Start a circle" }),
+  ).toBeVisible();
 });

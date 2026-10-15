@@ -9,7 +9,7 @@ export default function Privacy() {
         ← Back to Saff
       </a>
       <h1>Privacy policy</h1>
-      <p className="muted">Last updated 13 October 2026</p>
+      <p className="muted">Last updated 15 October 2026</p>
       <p>
         Saff is a prayer tracker you can share with family and friends. This
         page explains what Saff stores, who can see it, and how to remove it.
@@ -45,11 +45,12 @@ export default function Privacy() {
         </li>
       </ul>
       <p>
-        Your browser keeps your sign-in session, and any invite you opened
-        before signing in, in local storage. Saff has no advertising, analytics
-        or tracking cookies, and we do not sell your data. Our hosting and
-        database providers may keep standard technical logs, such as IP
-        addresses, for security and operations.
+        Your browser keeps your sign-in session, any invite you opened before
+        signing in, and whether we have already offered you notifications, in
+        local storage. Saff has no advertising, analytics or tracking cookies,
+        and we do not sell your data. Our hosting and database providers may
+        keep standard technical logs, such as IP addresses, for security and
+        operations.
       </p>
       <h2>Who can see it</h2>
       <p>
