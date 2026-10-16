@@ -70,7 +70,15 @@ test("new account starts empty, persists its first prayer, and clears on sign-ou
   await page
     .getByRole("button", { name: "Fajr, mark as prayed", exact: true })
     .click();
-  await expect(page.getByRole("status")).toContainText("recorded");
+  // Fajr's time ended at sunrise, so it asks first.
+  await page
+    .getByRole("dialog", { name: "A gentle check" })
+    .getByRole("button", { name: "Yes, I prayed it" })
+    .click();
+  // The setup message may still be fading out of the sheet's toast slot.
+  await expect(
+    page.getByRole("status").filter({ hasText: "recorded" }),
+  ).toBeVisible();
   await page.reload();
   await expect(
     page.getByRole("button", {

@@ -105,6 +105,77 @@ test("create circle with disclosure and edit goal", async ({ page }) => {
     page.getByRole("status").filter({ hasText: "Circle goal updated" }),
   ).toBeVisible();
 });
+test("marking a prayer after its time asks for an honest check first", async ({
+  page,
+}) => {
+  // 16:50 in Lahore: Asr is still open, Dhuhr's time has ended.
+  const saved = (prayer: string, date = "2026-09-29") =>
+    state.records.some((r) => r.date === date && r.prayer === prayer);
+  const check = page.getByRole("dialog", { name: "A gentle check" });
+  await page
+    .getByRole("button", { name: "Asr, mark as prayed", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText("Asr recorded");
+  await expect(check).toHaveCount(0);
+  expect(saved("asr")).toBe(true);
+  // Unmarking never asks.
+  await page
+    .getByRole("button", { name: "Dhuhr, recorded, tap to undo", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText("unmarked");
+  await expect(check).toHaveCount(0);
+  expect(saved("dhuhr")).toBe(false);
+  const dhuhr = page.getByRole("button", {
+    name: "Dhuhr, mark as prayed",
+    exact: true,
+  });
+  await dhuhr.click();
+  await expect(check.getByText("Dhuhr · today")).toBeVisible();
+  await expect(check.getByText("Did you pray Dhuhr?")).toBeVisible();
+  await check.getByRole("button", { name: "Not yet" }).click();
+  await expect(check).toHaveCount(0);
+  await expect(page.getByRole("status")).toContainText("Make up Dhuhr");
+  expect(saved("dhuhr")).toBe(false);
+  await dhuhr.click();
+  await check.getByRole("button", { name: "Close" }).click();
+  await expect(check).toHaveCount(0);
+  expect(saved("dhuhr")).toBe(false);
+  await dhuhr.click();
+  await check.getByRole("button", { name: "Yes, I prayed it" }).click();
+  await expect(check).toHaveCount(0);
+  await expect(
+    page.getByRole("button", {
+      name: "Dhuhr, recorded, tap to undo",
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(saved("dhuhr")).toBe(true);
+});
+test("earlier days in Insights ask before marking, on desktop too", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page
+    .getByRole("navigation", { name: "Main navigation", exact: true })
+    .getByRole("button", { name: "Insights", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "2026-09-28: 5 of 5 prayers" })
+    .click();
+  const check = page.getByRole("dialog", { name: "A gentle check" });
+  await page.getByRole("button", { name: "Asr prayed" }).click();
+  await expect(
+    page.getByRole("button", { name: "Asr not logged" }),
+  ).toBeVisible();
+  await expect(check).toHaveCount(0);
+  await page.getByRole("button", { name: "Asr not logged" }).click();
+  await expect(check.getByText("Asr · yesterday")).toBeVisible();
+  await check.getByRole("button", { name: "Yes, I prayed it" }).click();
+  await expect(page.getByRole("button", { name: "Asr prayed" })).toBeVisible();
+  expect(
+    state.records.some((r) => r.date === "2026-09-28" && r.prayer === "asr"),
+  ).toBe(true);
+});
 test("all views fit phone widths and desktop", async ({ page }) => {
   for (const width of [320, 360, 390, 430, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
