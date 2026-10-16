@@ -892,6 +892,59 @@ small {
   border-radius: 50%;
   background: var(--gold);
 }
+/* Honesty check before a prayer is marked after its time. */
+.sheet > .honesty-day {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 5px 13px 5px 7px;
+  border: 1px solid #f5b94233;
+  border-radius: 999px;
+  background: #f5b9421a;
+  color: var(--gold);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.honesty-reminder {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border-left: 2px solid var(--gold);
+  border-radius: 4px 14px 14px 4px;
+  background: #ffffff08;
+  animation: honesty-in 0.5s ease-out both;
+}
+.honesty-reminder p {
+  font-size: 13px;
+  line-height: 1.7;
+  font-style: italic;
+  color: var(--cream);
+}
+.honesty-reminder cite {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  font-style: normal;
+  color: var(--muted);
+}
+.sheet > .honesty-question {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--cream);
+  margin-bottom: 16px;
+}
+@keyframes honesty-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .honesty-reminder {
+    animation: none;
+  }
+}
 /* Today: your character at the end of the location row opens Settings (see port-reference.py). */
 .reference-today .me {
   display: flex;
