@@ -10,6 +10,7 @@ import {
   bestStreak,
   badges,
   prayerTimes,
+  missedWindow,
   RecordItem,
 } from "../src/lib/domain";
 const full = (day: string): RecordItem[] =>
@@ -103,5 +104,46 @@ describe("dates and prayer calculations", () => {
         hanafi[PRAYERS[i - 1]].getTime(),
       );
     expect(hanafi.asr.getTime()).toBeGreaterThan(standard.asr.getTime());
+  });
+});
+describe("missed prayer windows", () => {
+  const day = "2026-09-29",
+    t = prayerTimes(DEFAULT_SETTINGS, day),
+    at = (d: Date, minutes: number) => new Date(d.getTime() + minutes * 60000);
+  it("is open from a prayer's start until the next one begins", () => {
+    expect(missedWindow(DEFAULT_SETTINGS, "dhuhr", day, at(t.dhuhr, 1))).toBe(
+      false,
+    );
+    expect(missedWindow(DEFAULT_SETTINGS, "dhuhr", day, at(t.asr, -1))).toBe(
+      false,
+    );
+    expect(missedWindow(DEFAULT_SETTINGS, "dhuhr", day, at(t.asr, 1))).toBe(
+      true,
+    );
+  });
+  it("closes Fajr at sunrise and Maghrib at Isha", () => {
+    expect(missedWindow(DEFAULT_SETTINGS, "fajr", day, at(t.sunrise, -1))).toBe(
+      false,
+    );
+    expect(missedWindow(DEFAULT_SETTINGS, "fajr", day, at(t.sunrise, 1))).toBe(
+      true,
+    );
+    expect(missedWindow(DEFAULT_SETTINGS, "maghrib", day, at(t.isha, 1))).toBe(
+      true,
+    );
+  });
+  it("keeps Isha open past midnight until the next Fajr", () => {
+    const next = prayerTimes(DEFAULT_SETTINGS, shiftDate(day, 1));
+    expect(missedWindow(DEFAULT_SETTINGS, "isha", day, at(next.fajr, -1))).toBe(
+      false,
+    );
+    expect(missedWindow(DEFAULT_SETTINGS, "isha", day, at(next.fajr, 1))).toBe(
+      true,
+    );
+  });
+  it("treats every prayer on an earlier day as missed", () => {
+    const later = at(t.dhuhr, 24 * 60);
+    for (const prayer of ["fajr", "dhuhr", "asr", "maghrib"] as const)
+      expect(missedWindow(DEFAULT_SETTINGS, prayer, day, later)).toBe(true);
   });
 });
