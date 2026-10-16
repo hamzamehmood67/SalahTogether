@@ -50,6 +50,7 @@ import {
   streak,
   bestStreak,
   prayerTimes,
+  missedWindow,
   timeLabel,
   badges,
 } from "@/lib/domain";
@@ -185,6 +186,21 @@ function Sheet({
     </motion.div>
   );
 }
+// Shown in turn on the honesty check for a prayer marked after its time.
+const HONESTY_REMINDERS = [
+  {
+    text: "O you who have believed, fear Allah and be with those who are true.",
+    source: "Qur’an 9:119",
+  },
+  {
+    text: "If anyone forgets a prayer, he should pray it when he remembers it.",
+    source: "Sahih al-Bukhari 597",
+  },
+  {
+    text: "Truthfulness leads to righteousness, and righteousness leads to Paradise.",
+    source: "Sahih al-Bukhari 6094",
+  },
+];
 const INVITE_KEY = "saff-join";
 function rememberInvite(code: string) {
   const clean = code.trim().toUpperCase().slice(0, 12);
@@ -280,6 +296,7 @@ export default function Saff() {
       | "delete"
       | "notify"
       | "character"
+      | "honesty"
     >(null),
     [now, setNow] = useState(new Date()),
     [toast, setToast] = useState(""),
@@ -317,8 +334,15 @@ export default function Saff() {
     // Then, once, accounts that have not chosen a character are asked to.
     [characterStep, setCharacterStep] = useState<"checking" | "offer" | "done">(
       "checking",
-    );
-  const invitePrompted = useRef(false);
+    ),
+    // A prayer marked after its time waits here for the honesty check.
+    [late, setLate] = useState<{
+      prayer: Prayer;
+      day: string;
+      reminder: number;
+    } | null>(null);
+  const invitePrompted = useRef(false),
+    lateCount = useRef(0);
   useEffect(() => {
     setSheet(null);
     setNudged({});
@@ -536,6 +560,22 @@ export default function Saff() {
   }
   async function toggle(prayer: Prayer, day = today) {
     if (pending) return;
+    // Marking a prayer after its time asks first; unmarking never does.
+    if (
+      !records.some((r) => r.date === day && r.prayer === prayer) &&
+      missedWindow(settings, prayer, day, new Date())
+    ) {
+      setLate({
+        prayer,
+        day,
+        reminder: lateCount.current++ % HONESTY_REMINDERS.length,
+      });
+      setSheet("honesty");
+      return;
+    }
+    await record(prayer, day);
+  }
+  async function record(prayer: Prayer, day: string) {
     await run(async () => {
       const added = await app.toggle(prayer, day);
       if (added) {
@@ -1523,6 +1563,7 @@ export default function Saff() {
                 delete: "Delete your account",
                 notify: "Never miss a prayer",
                 character: "Choose your character",
+                honesty: "A gentle check",
               }[sheet]
             }
             close={() => {
@@ -2209,6 +2250,67 @@ export default function Saff() {
                   onClick={finishCharacter}
                 >
                   Not now
+                </button>
+              </>
+            )}
+            {sheet === "honesty" && late && (
+              <>
+                <p className="honesty-day">
+                  <Art
+                    id={"ico" + NAMES[PRAYERS.indexOf(late.prayer)]}
+                    size={22}
+                  />
+                  {NAMES[PRAYERS.indexOf(late.prayer)]} ·{" "}
+                  {late.day === today
+                    ? "today"
+                    : late.day === shiftDate(today, -1)
+                      ? "yesterday"
+                      : new Date(late.day + "T12:00:00Z").toLocaleDateString(
+                          "en-GB",
+                          {
+                            weekday: "short",
+                            day: "numeric",
+                            month: "short",
+                            timeZone: "UTC",
+                          },
+                        )}
+                </p>
+                <p className="muted">
+                  Missing a prayer happens, and making it up is always good.
+                  Just be honest with yourself: this record is between you and
+                  Allah.
+                </p>
+                <blockquote className="honesty-reminder">
+                  <p>“{HONESTY_REMINDERS[late.reminder].text}”</p>
+                  <cite>{HONESTY_REMINDERS[late.reminder].source}</cite>
+                </blockquote>
+                <p className="honesty-question">
+                  Did you pray {NAMES[PRAYERS.indexOf(late.prayer)]}?
+                </p>
+                <button
+                  className="primary full"
+                  disabled={pending}
+                  onClick={() => {
+                    setSheet(null);
+                    record(late.prayer, late.day);
+                  }}
+                >
+                  <Check size={17} />
+                  Yes, I prayed it
+                </button>
+                <button
+                  className="text-button full"
+                  disabled={pending}
+                  onClick={() => {
+                    setSheet(null);
+                    notify(
+                      "No worries. Make up " +
+                        NAMES[PRAYERS.indexOf(late.prayer)] +
+                        " when you can, then mark it here.",
+                    );
+                  }}
+                >
+                  Not yet
                 </button>
               </>
             )}

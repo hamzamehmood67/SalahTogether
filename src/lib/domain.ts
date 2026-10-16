@@ -168,6 +168,24 @@ export function prayerTimes(
     params,
   );
 }
+// True once a prayer's own time has ended: Fajr at sunrise, Isha at the next
+// day's Fajr, and every other prayer when the next one begins.
+export function missedWindow(
+  settings: Settings,
+  prayer: Prayer,
+  key: string,
+  now = new Date(),
+) {
+  const t = prayerTimes(settings, key);
+  const end = {
+    fajr: t.sunrise,
+    dhuhr: t.asr,
+    asr: t.maghrib,
+    maghrib: t.isha,
+    isha: prayerTimes(settings, shiftDate(key, 1)).fajr,
+  }[prayer];
+  return now >= end;
+}
 export function timeLabel(d: Date, timezone: string) {
   return new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
