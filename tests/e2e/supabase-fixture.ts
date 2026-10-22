@@ -21,6 +21,8 @@ export async function mockSupabase(
     notifyPrompt?: boolean;
     // Leave the populated account without a character, so it is asked to choose one.
     characterPrompt?: boolean;
+    // Answer sign-in emails like a project that hit its hourly email cap.
+    emailLimit?: boolean;
   } = {},
 ) {
   const populated = options.populated ?? true;
@@ -65,6 +67,7 @@ export async function mockSupabase(
         ]
       : []) as Circle[],
     failDashboard: options.failDashboard ?? false,
+    emailLimit: options.emailLimit ?? false,
     otpRequests: 0,
     pushRegistered: false,
     deleted: false,
@@ -115,6 +118,17 @@ export async function mockSupabase(
     let result: unknown = null;
     if (url.pathname.includes("/auth/v1/")) {
       if (method === "otp") state.otpRequests++;
+      if (method === "otp" && state.emailLimit) {
+        await route.fulfill({
+          status: 429,
+          json: {
+            code: 429,
+            error_code: "over_email_send_rate_limit",
+            msg: "Email rate limit exceeded",
+          },
+        });
+        return;
+      }
       if (method === "verify") {
         if (payload.token !== "123456") {
           await route.fulfill({

@@ -54,6 +54,7 @@ import {
   timeLabel,
   badges,
 } from "@/lib/domain";
+import { isAuthImplicitGrantRedirectError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { PushState, pushState, enablePush, disablePush } from "@/lib/push";
 import TodayReference from "./reference/today";
@@ -413,6 +414,32 @@ export default function Saff() {
     if (pending) setInvited(pending);
   }, []);
   useEffect(() => {
+    // An emailed link that expired or was already used (mail scanners open links too) lands here with the error in the URL.
+    if (!supabase) return;
+    const client = supabase;
+    let active = true;
+    void client.auth.initialize().then(async ({ error }) => {
+      if (!active || !isAuthImplicitGrantRedirectError(error)) return;
+      const url = new URL(window.location.href);
+      for (const key of ["error", "error_code", "error_description"])
+        url.searchParams.delete(key);
+      if (/(^#|&)error/.test(url.hash)) url.hash = "";
+      window.history.replaceState(window.history.state, "", url);
+      // A stale link must not disturb a device that is already signed in.
+      const { data } = await client.auth.getSession();
+      if (!active || data.session) return;
+      notify(
+        error.details?.code === "otp_expired"
+          ? "That sign-in link has expired or was already used. Enter your email for a new code."
+          : error.message,
+      );
+      open("auth");
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+  useEffect(() => {
     if (!welcome && userId && !settings.onboarded) {
       setDraft({
         ...settings,
@@ -607,6 +634,11 @@ export default function Saff() {
       email: email.trim(),
       options: { emailRedirectTo: window.location.origin },
     });
+    // The project's hourly email cap; the per-address wait already says how long.
+    if (error && /email rate limit exceeded/i.test(error.message))
+      throw new Error(
+        "Too many sign-in emails have gone out in the last hour. Please try again a little later.",
+      );
     if (error) throw error;
   }
   function finishCharacter() {

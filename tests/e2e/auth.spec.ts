@@ -159,6 +159,56 @@ test("visitors sign in with the emailed code", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("the hourly email cap gets a plain explanation", async ({ page }) => {
+  const state = await mockSupabase(page, {
+    signedIn: false,
+    populated: false,
+    emailLimit: true,
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Continue individually" }).click();
+  await page.getByLabel("Email address").fill("amina@example.com");
+  await page.getByRole("button", { name: "Email me a sign-in code" }).click();
+  await expect(page.getByRole("status")).toContainText(
+    "Too many sign-in emails",
+  );
+  await expect(page.getByLabel("Sign-in code")).toHaveCount(0);
+  state.emailLimit = false;
+  await page.getByRole("button", { name: "Email me a sign-in code" }).click();
+  await expect(page.getByLabel("Sign-in code")).toBeVisible();
+});
+
+const EXPIRED_LINK =
+  "/#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired";
+
+test("an expired email link explains itself and offers a new code", async ({
+  page,
+}) => {
+  const state = await mockSupabase(page, {
+    signedIn: false,
+    populated: false,
+  });
+  await page.goto(EXPIRED_LINK);
+  await expect(page.getByRole("status")).toContainText(
+    "expired or was already used",
+  );
+  await expect(page.getByLabel("Email address")).toBeVisible();
+  expect(new URL(page.url()).hash).toBe("");
+  await page.getByLabel("Email address").fill("amina@example.com");
+  await page.getByRole("button", { name: "Email me a sign-in code" }).click();
+  await expect(page.getByLabel("Sign-in code")).toBeVisible();
+  expect(state.otpRequests).toBe(1);
+});
+
+test("an old email link leaves a signed-in device alone", async ({ page }) => {
+  await mockSupabase(page);
+  await page.goto(EXPIRED_LINK);
+  await expect(page.locator(".reference-today")).toBeVisible();
+  await expect.poll(() => new URL(page.url()).hash).toBe("");
+  await expect(page.getByLabel("Email address")).toHaveCount(0);
+  await expect(page.getByText("sign-in link")).toHaveCount(0);
+});
+
 test("start a circle carries through sign-in and first-run setup", async ({
   page,
 }) => {
