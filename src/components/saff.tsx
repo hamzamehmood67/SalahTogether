@@ -54,6 +54,7 @@ import {
   timeLabel,
   badges,
 } from "@/lib/domain";
+import { isAuthImplicitGrantRedirectError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { PushState, pushState, enablePush, disablePush } from "@/lib/push";
 import TodayReference from "./reference/today";
@@ -411,6 +412,32 @@ export default function Saff() {
     }
     const pending = code ? rememberInvite(code) : recalledInvite();
     if (pending) setInvited(pending);
+  }, []);
+  useEffect(() => {
+    // An emailed link that expired or was already used (mail scanners open links too) lands here with the error in the URL.
+    if (!supabase) return;
+    const client = supabase;
+    let active = true;
+    void client.auth.initialize().then(async ({ error }) => {
+      if (!active || !isAuthImplicitGrantRedirectError(error)) return;
+      const url = new URL(window.location.href);
+      for (const key of ["error", "error_code", "error_description"])
+        url.searchParams.delete(key);
+      if (/(^#|&)error/.test(url.hash)) url.hash = "";
+      window.history.replaceState(window.history.state, "", url);
+      // A stale link must not disturb a device that is already signed in.
+      const { data } = await client.auth.getSession();
+      if (!active || data.session) return;
+      notify(
+        error.details?.code === "otp_expired"
+          ? "That sign-in link has expired or was already used. Enter your email for a new code."
+          : error.message,
+      );
+      open("auth");
+    });
+    return () => {
+      active = false;
+    };
   }, []);
   useEffect(() => {
     if (!welcome && userId && !settings.onboarded) {
