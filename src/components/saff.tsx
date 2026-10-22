@@ -634,6 +634,11 @@ export default function Saff() {
       email: email.trim(),
       options: { emailRedirectTo: window.location.origin },
     });
+    // The project's hourly email cap; the per-address wait already says how long.
+    if (error && /email rate limit exceeded/i.test(error.message))
+      throw new Error(
+        "Too many sign-in emails have gone out in the last hour. Please try again a little later.",
+      );
     if (error) throw error;
   }
   function finishCharacter() {
