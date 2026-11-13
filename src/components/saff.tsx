@@ -225,8 +225,7 @@ function forgetInvite() {
     /* Nothing to forget. */
   }
 }
-// First-landing offers are made once per account on each device.
-const NOTIFY_ASKED_KEY = "saff-notify-asked:";
+// The character question is asked once per account on each device.
 const CHARACTER_ASKED_KEY = "saff-character-asked:";
 function wasAsked(key: string, user: string) {
   try {
@@ -240,6 +239,22 @@ function rememberAsked(key: string, user: string) {
     localStorage.setItem(key + user, "1");
   } catch {
     /* Nothing to remember it in. */
+  }
+}
+// Until notifications are on, the offer returns on every visit; "Not now" lasts one visit.
+const NOTIFY_LATER_KEY = "saff-notify-later:";
+function notifyPostponed(user: string) {
+  try {
+    return !!sessionStorage.getItem(NOTIFY_LATER_KEY + user);
+  } catch {
+    return false;
+  }
+}
+function postponeNotify(user: string) {
+  try {
+    sessionStorage.setItem(NOTIFY_LATER_KEY + user, "1");
+  } catch {
+    /* Without storage the offer simply returns on reload. */
   }
 }
 // Each person's character; a sleepy crescent stands in until they choose.
@@ -327,7 +342,7 @@ export default function Saff() {
     [invitesSaving, setInvitesSaving] = useState<boolean | null>(null),
     // The Circles tab lists every circle; "detail" shows the selected one.
     [circleView, setCircleView] = useState<"list" | "detail">("list"),
-    // First landing: check whether to offer notifications before other prompts.
+    // Each visit: check whether to offer notifications before other prompts.
     [notifyStep, setNotifyStep] = useState<"checking" | "offer" | "done">(
       "checking",
     ),
@@ -357,17 +372,22 @@ export default function Saff() {
     if (
       !supabase ||
       !process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
-      wasAsked(NOTIFY_ASKED_KEY, userId)
+      notifyPostponed(userId)
     ) {
       setNotifyStep("done");
       return;
     }
     let active = true;
-    // Only a device that could receive push but is not set up for this account.
+    // Any device that could receive push but is not set up for this account,
+    // including one where notifications were blocked (it explains how to allow them).
     pushState(supabase)
-      .then(
-        (state) => active && setNotifyStep(state === "off" ? "offer" : "done"),
-      )
+      .then((state) => {
+        if (!active) return;
+        setDevicePush(state);
+        setNotifyStep(
+          state === "off" || state === "blocked" ? "offer" : "done",
+        );
+      })
       .catch(() => active && setNotifyStep("done"));
     return () => {
       active = false;
@@ -615,7 +635,7 @@ export default function Saff() {
     setSheet(null);
   }
   function finishNotify() {
-    if (userId) rememberAsked(NOTIFY_ASKED_KEY, userId);
+    if (userId) postponeNotify(userId);
     setNotifyStep("done");
     setSheet(null);
   }
@@ -2205,26 +2225,51 @@ export default function Saff() {
                   Get a gentle reminder at each prayer time in {settings.city},
                   and let your circle nudge you when a prayer is still open.
                 </p>
-                <ul className="notify-points">
-                  <li>All five prayers, at their start time</li>
-                  <li>At most one nudge per prayer, across your circles</li>
-                  <li>Change or turn off anytime in Settings</li>
-                </ul>
-                <button
-                  className="primary full"
-                  disabled={pending}
-                  onClick={() => run(turnOnNotifications)}
-                >
-                  <Bell size={17} />
-                  Turn on notifications
-                </button>
-                <button
-                  className="text-button full"
-                  disabled={pending}
-                  onClick={finishNotify}
-                >
-                  Not now
-                </button>
+                {devicePush === "blocked" ? (
+                  <>
+                    <ul className="notify-points">
+                      <li>
+                        Notifications are blocked for Saff in this browser
+                      </li>
+                      <li>
+                        Tap the lock or settings icon next to the address, or
+                        open this browser’s site settings
+                      </li>
+                      <li>Allow notifications, then reopen Saff</li>
+                    </ul>
+                    <button
+                      className="primary full"
+                      disabled={pending}
+                      onClick={finishNotify}
+                    >
+                      <Check size={17} />
+                      Got it
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <ul className="notify-points">
+                      <li>All five prayers, at their start time</li>
+                      <li>At most one nudge per prayer, across your circles</li>
+                      <li>Change or turn off anytime in Settings</li>
+                    </ul>
+                    <button
+                      className="primary full"
+                      disabled={pending}
+                      onClick={() => run(turnOnNotifications)}
+                    >
+                      <Bell size={17} />
+                      Turn on notifications
+                    </button>
+                    <button
+                      className="text-button full"
+                      disabled={pending}
+                      onClick={finishNotify}
+                    >
+                      Not now
+                    </button>
+                  </>
+                )}
               </>
             )}
             {sheet === "character" && (
