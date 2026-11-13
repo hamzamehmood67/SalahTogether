@@ -627,7 +627,18 @@ export default function Saff() {
       email: email.trim(),
       options: { emailRedirectTo: window.location.origin },
     });
-    if (error) throw error;
+    if (!error) return;
+    // Supabase limits how often one address can be sent a code.
+    const wait = error.message.match(/after (\d+) seconds?/i);
+    if (wait)
+      throw new Error(
+        `Please wait ${wait[1]} seconds before asking for another code. The last one still works.`,
+      );
+    if (/rate limit/i.test(error.message))
+      throw new Error(
+        "Too many codes were sent just now. Please try again in a few minutes.",
+      );
+    throw error;
   }
   function finishCharacter() {
     if (userId) rememberAsked(CHARACTER_ASKED_KEY, userId);
@@ -2469,8 +2480,8 @@ export default function Saff() {
                   Email me a sign-in code
                 </button>
                 <p className="fine-print">
-                  We’ll email you a short code and a secure link. No password to
-                  remember. By continuing you agree to our{" "}
+                  We’ll email you a short sign-in code. No password to remember.
+                  By continuing you agree to our{" "}
                   <a href="/privacy" target="_blank" className="mint-text">
                     privacy policy
                   </a>
