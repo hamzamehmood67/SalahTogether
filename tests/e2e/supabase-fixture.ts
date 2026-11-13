@@ -8,7 +8,7 @@ import {
 } from "../../src/lib/domain";
 
 export const AUTH_KEY = "sb-saff-test-auth-token";
-export const NOTIFY_ASKED_KEY = "saff-notify-asked:";
+export const NOTIFY_LATER_KEY = "saff-notify-later:";
 const id = "11111111-1111-4111-8111-111111111111";
 // Browser-only network fixtures. Nothing here is imported by the app.
 export async function mockSupabase(
@@ -17,7 +17,7 @@ export async function mockSupabase(
     signedIn?: boolean;
     populated?: boolean;
     failDashboard?: boolean;
-    // Show the first-landing notification prompt instead of marking it answered.
+    // Show the notification prompt instead of postponing it for this visit.
     notifyPrompt?: boolean;
     // Leave the populated account without a character, so it is asked to choose one.
     characterPrompt?: boolean;
@@ -71,8 +71,8 @@ export async function mockSupabase(
   };
   if (!options.notifyPrompt)
     await page.addInitScript(
-      (key) => localStorage.setItem(key, "1"),
-      NOTIFY_ASKED_KEY + id,
+      (key) => sessionStorage.setItem(key, "1"),
+      NOTIFY_LATER_KEY + id,
     );
   if (options.signedIn !== false) {
     await page.addInitScript(
