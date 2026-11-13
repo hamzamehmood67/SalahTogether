@@ -198,32 +198,39 @@ test("privacy and account deletion pages are public and fit a phone", async ({
 });
 
 // Headless Chrome cannot reach a push service, so these stub the browser's side.
-async function fakeNotifications(page: Page, permission: "granted" | "denied") {
-  await page.addInitScript((answer) => {
-    Object.defineProperty(Notification, "permission", { get: () => "default" });
-    Object.defineProperty(Notification, "requestPermission", {
-      value: async () => answer,
-    });
-    const subscription = {
-      endpoint: "https://push.example.test/device",
-      toJSON: () => ({
+async function fakeNotifications(
+  page: Page,
+  permission: "granted" | "denied",
+  current: "default" | "denied" = "default",
+) {
+  await page.addInitScript(
+    ([answer, now]) => {
+      Object.defineProperty(Notification, "permission", { get: () => now });
+      Object.defineProperty(Notification, "requestPermission", {
+        value: async () => answer,
+      });
+      const subscription = {
         endpoint: "https://push.example.test/device",
-        keys: { p256dh: "test", auth: "test" },
-      }),
-    };
-    Object.defineProperty(navigator.serviceWorker, "ready", {
-      get: () =>
-        Promise.resolve({
-          pushManager: {
-            getSubscription: async () => null,
-            subscribe: async () => subscription,
-          },
+        toJSON: () => ({
+          endpoint: "https://push.example.test/device",
+          keys: { p256dh: "test", auth: "test" },
         }),
-    });
-  }, permission);
+      };
+      Object.defineProperty(navigator.serviceWorker, "ready", {
+        get: () =>
+          Promise.resolve({
+            pushManager: {
+              getSubscription: async () => null,
+              subscribe: async () => subscription,
+            },
+          }),
+      });
+    },
+    [permission, current] as const,
+  );
 }
 
-test("first landing asks once to turn on notifications", async ({ page }) => {
+test("the notification offer turns reminders on", async ({ page }) => {
   await fakeNotifications(page, "granted");
   const state = await mockSupabase(page, { notifyPrompt: true });
   await page.goto("/");
@@ -239,9 +246,7 @@ test("first landing asks once to turn on notifications", async ({ page }) => {
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
-test("a declined permission or Not now ends the prompt for this device", async ({
-  page,
-}) => {
+test("a declined permission rests for this visit", async ({ page }) => {
   await fakeNotifications(page, "denied");
   const state = await mockSupabase(page, { notifyPrompt: true });
   await page.goto("/");
@@ -253,6 +258,43 @@ test("a declined permission or Not now ends the prompt for this device", async (
   await page.reload();
   await expect(page.getByRole("heading", { name: "Yusuf" })).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("Not now lasts one visit and the offer returns on the next", async ({
+  page,
+  context,
+}) => {
+  await fakeNotifications(page, "granted");
+  await mockSupabase(page, { notifyPrompt: true });
+  await page.goto("/");
+  const prompt = page.getByRole("dialog", { name: "Never miss a prayer" });
+  await prompt.getByRole("button", { name: "Not now" }).click();
+  await expect(prompt).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Yusuf" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  // A new visit (a fresh tab) offers it again until notifications are on.
+  const next = await context.newPage();
+  await next.clock.setFixedTime(new Date("2026-09-29T11:50:00Z"));
+  await fakeNotifications(next, "granted");
+  await mockSupabase(next, { notifyPrompt: true });
+  await next.goto("/");
+  await expect(
+    next.getByRole("dialog", { name: "Never miss a prayer" }),
+  ).toContainText("Turn on notifications");
+});
+
+test("blocked notifications are explained on each visit", async ({ page }) => {
+  await fakeNotifications(page, "denied", "denied");
+  await mockSupabase(page, { notifyPrompt: true });
+  await page.goto("/");
+  const prompt = page.getByRole("dialog", { name: "Never miss a prayer" });
+  await expect(prompt).toContainText("blocked for Saff in this browser");
+  await expect(
+    prompt.getByRole("button", { name: "Turn on notifications" }),
+  ).toHaveCount(0);
+  await prompt.getByRole("button", { name: "Got it" }).click();
+  await expect(prompt).toHaveCount(0);
 });
 
 test("new users see the notification prompt after setup, then their chosen step", async ({
